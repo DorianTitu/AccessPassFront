@@ -61,34 +61,11 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
     onClose()
   }
 
-  const handlePhotoIDClick = () => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = 'image/*'
-    input.onchange = (e: any) => {
-      const file = e.target.files[0]
-      const reader = new FileReader()
-      reader.onload = (event: any) => {
-        setPhotoID(event.target.result)
-      }
-      reader.readAsDataURL(file)
-    }
-    input.click()
-  }
 
-  const handlePhotoFaceClick = () => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = 'image/*'
-    input.onchange = (e: any) => {
-      const file = e.target.files[0]
-      const reader = new FileReader()
-      reader.onload = (event: any) => {
-        setPhotoFace(event.target.result)
-      }
-      reader.readAsDataURL(file)
-    }
-    input.click()
+
+  const handleCapturedPhotos = (photoID: string, photoFace: string) => {
+    setPhotoID(photoID)
+    setPhotoFace(photoFace)
   }
 
   return (
@@ -102,7 +79,7 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
         <div className="form-content">
           {/* Sección de Fotos */}
           <div className="photos-section">
-            <div className="photo-box" onClick={handlePhotoIDClick}>
+            <div className="photo-box">
               {photoID ? (
                 <img src={photoID} alt="Cédula" className="photo-image" />
               ) : (
@@ -111,7 +88,7 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
                 </div>
               )}
             </div>
-            <div className="photo-box" onClick={handlePhotoFaceClick}>
+            <div className="photo-box">
               {photoFace ? (
                 <img src={photoFace} alt="Rostro" className="photo-image" />
               ) : (
@@ -183,7 +160,7 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
           </div>
 
           {/* Componente de Captura */}
-          <ScreenCapture type="pedestrian" />
+          <ScreenCapture type="pedestrian" onPedestrianPhotosCapture={handleCapturedPhotos} />
 
           {/* Botones de Acción */}
           <div className="form-buttons">

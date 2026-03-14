@@ -3,6 +3,8 @@ import './ScreenCapture.css'
 
 interface ScreenCaptureProps {
   type: 'pedestrian' | 'vehicular'
+  onPedestrianPhotosCapture?: (photoID: string, photoFace: string) => void
+  onVehicularPhotosCapture?: (photoDriver: string, photoPlate: string) => void
 }
 
 interface CropBox {
@@ -13,7 +15,11 @@ interface CropBox {
   height: number
 }
 
-export default function ScreenCapture({ type }: ScreenCaptureProps) {
+export default function ScreenCapture({ 
+  type,
+  onPedestrianPhotosCapture,
+  onVehicularPhotosCapture
+}: ScreenCaptureProps) {
   const [isCapturing, setIsCapturing] = useState(false)
   const [captureMessage, setCaptureMessage] = useState('')
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
@@ -174,28 +180,48 @@ export default function ScreenCapture({ type }: ScreenCaptureProps) {
   const downloadCrop = (box: CropBox, index: number) => {
     if (!imageRef.current) return
 
-    const tempCanvas = document.createElement('canvas')
-    tempCanvas.width = box.width
-    tempCanvas.height = box.height
-    const ctx = tempCanvas.getContext('2d')
+    // Determinar cantidad de divisiones según el tipo
+    const divisions = type === 'pedestrian' ? 2 : 3
+    const partWidth = box.width / divisions
+    const parts: string[] = []
 
-    if (!ctx) return
+    // Generar cada división
+    for (let i = 0; i < divisions; i++) {
+      const partX = box.x + (i * partWidth)
+      
+      const tempCanvas = document.createElement('canvas')
+      tempCanvas.width = partWidth
+      tempCanvas.height = box.height
+      const ctx = tempCanvas.getContext('2d')
 
-    ctx.drawImage(
-      imageRef.current,
-      box.x, box.y, box.width, box.height,
-      0, 0, box.width, box.height
-    )
+      if (!ctx) return
 
-    const link = document.createElement('a')
-    link.href = tempCanvas.toDataURL('image/png')
-    link.download = `${type}-camara-${index + 1}-${Date.now()}.png`
-    link.click()
+      ctx.drawImage(
+        imageRef.current,
+        partX, box.y, partWidth, box.height,
+        0, 0, partWidth, box.height
+      )
+
+      const imageData = tempCanvas.toDataURL('image/png')
+      parts.push(imageData)
+    }
+
+    // Inyectar en el formulario
+    if (type === 'pedestrian' && onPedestrianPhotosCapture && parts.length === 2) {
+      onPedestrianPhotosCapture(parts[0], parts[1])
+      setCaptureMessage('✓ Fotos cargadas en el formulario')
+      setTimeout(() => setCaptureMessage(''), 2000)
+    } else if (type === 'vehicular' && onVehicularPhotosCapture && parts.length === 3) {
+      onVehicularPhotosCapture(parts[0], parts[2])
+      setCaptureMessage('✓ Fotos cargadas en el formulario')
+      setTimeout(() => setCaptureMessage(''), 2000)
+    }
   }
 
   const downloadAll = () => {
     cropBoxes.forEach((box, index) => {
-      setTimeout(() => downloadCrop(box, index), index * 300)
+      // Cada rectángulo se carga en el formulario
+      setTimeout(() => downloadCrop(box, index), index * 1000)
     })
   }
 
@@ -277,7 +303,7 @@ export default function ScreenCapture({ type }: ScreenCaptureProps) {
                           className="btn-crop-download"
                           onClick={() => downloadCrop(box, index)}
                         >
-                          Descargar
+                          Cargar al Formulario ({type === 'pedestrian' ? '2' : '3'})
                         </button>
                         <button
                           className="btn-crop-delete"
@@ -295,7 +321,7 @@ export default function ScreenCapture({ type }: ScreenCaptureProps) {
             <div className="crop-editor-actions">
               {cropBoxes.length > 0 && (
                 <button className="btn-download-all" onClick={downloadAll}>
-                  Descargar Todos ({cropBoxes.length})
+                  Cargar Todos al Formulario ({cropBoxes.length})
                 </button>
               )}
               <button className="btn-close-editor" onClick={closeEditor}>

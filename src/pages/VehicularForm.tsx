@@ -61,34 +61,9 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
     onClose()
   }
 
-  const handlePhotoPlateClick = () => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = 'image/*'
-    input.onchange = (e: any) => {
-      const file = e.target.files[0]
-      const reader = new FileReader()
-      reader.onload = (event: any) => {
-        setPhotoPlate(event.target.result)
-      }
-      reader.readAsDataURL(file)
-    }
-    input.click()
-  }
-
-  const handlePhotoDriverClick = () => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = 'image/*'
-    input.onchange = (e: any) => {
-      const file = e.target.files[0]
-      const reader = new FileReader()
-      reader.onload = (event: any) => {
-        setPhotoDriver(event.target.result)
-      }
-      reader.readAsDataURL(file)
-    }
-    input.click()
+  const handleCapturedPhotos = (photoDriver: string, photoPlate: string) => {
+    setPhotoDriver(photoDriver)
+    setPhotoPlate(photoPlate)
   }
 
   return (
@@ -102,7 +77,7 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
         <div className="form-content">
           {/* Sección de Fotos */}
           <div className="photos-section">
-            <div className="photo-box" onClick={handlePhotoPlateClick}>
+            <div className="photo-box">
               {photoPlate ? (
                 <img src={photoPlate} alt="Placa" className="photo-image" />
               ) : (
@@ -111,7 +86,7 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
                 </div>
               )}
             </div>
-            <div className="photo-box" onClick={handlePhotoDriverClick}>
+            <div className="photo-box">
               {photoDriver ? (
                 <img src={photoDriver} alt="Conductor" className="photo-image" />
               ) : (
@@ -178,7 +153,7 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
           </div>
 
           {/* Componente de Captura */}
-          <ScreenCapture type="vehicular" />
+          <ScreenCapture type="vehicular" onVehicularPhotosCapture={handleCapturedPhotos} />
 
           {/* Botones de Acción */}
           <div className="form-buttons">
