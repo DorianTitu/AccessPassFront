@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import './ScreenCapture.css'
 
 interface ScreenCaptureProps {
@@ -28,8 +28,95 @@ export default function ScreenCapture({
   const [isDrawing, setIsDrawing] = useState(false)
   const [startPos, setStartPos] = useState({ x: 0, y: 0 })
   const [currentBox, setCurrentBox] = useState<CropBox | null>(null)
+  const [isCalibrationMode, setIsCalibrationMode] = useState(false)
+  const [hasCalibration, setHasCalibration] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
+
+  // Cargar calibración al montar
+  useEffect(() => {
+    const key = `calibration_${type}`
+    const saved = localStorage.getItem(key)
+    if (saved) {
+      setHasCalibration(true)
+    }
+  }, [type])
+
+  const saveCalibration = () => {
+    const key = `calibration_${type}`
+    const calibrationData = JSON.stringify(cropBoxes)
+    localStorage.setItem(key, calibrationData)
+    setCaptureMessage('✓ Calibración guardada')
+    setTimeout(() => setCaptureMessage(''), 2000)
+    setIsCalibrationMode(false)
+    setHasCalibration(true)
+    setShowEditor(false)
+    setCapturedImage(null)
+    setCropBoxes([])
+  }
+
+  const loadAndApplyCalibration = (imageDimensions: { width: number; height: number }) => {
+    const key = `calibration_${type}`
+    const saved = localStorage.getItem(key)
+    if (!saved) return false
+
+    try {
+      const calibrationBoxes = JSON.parse(saved) as CropBox[]
+      setCropBoxes(calibrationBoxes)
+
+      // Aplicar automáticamente
+      setTimeout(() => {
+        calibrationBoxes.forEach((box, index) => {
+          const tempCanvas = document.createElement('canvas')
+          tempCanvas.width = type === 'pedestrian' ? box.width / 2 : box.width / 3
+          tempCanvas.height = box.height
+          const ctx = tempCanvas.getContext('2d')
+
+          if (!ctx || !imageRef.current) return
+
+          const divisions = type === 'pedestrian' ? 2 : 3
+          const parts: string[] = []
+
+          for (let i = 0; i < divisions; i++) {
+            const partX = box.x + (i * (box.width / divisions))
+            const partCanvas = document.createElement('canvas')
+            partCanvas.width = box.width / divisions
+            partCanvas.height = box.height
+            const partCtx = partCanvas.getContext('2d')
+
+            if (!partCtx) return
+
+            partCtx.drawImage(
+              imageRef.current,
+              partX, box.y, box.width / divisions, box.height,
+              0, 0, box.width / divisions, box.height
+            )
+
+            parts.push(partCanvas.toDataURL('image/png'))
+          }
+
+          if (type === 'pedestrian' && onPedestrianPhotosCapture && parts.length === 2) {
+            onPedestrianPhotosCapture(parts[0], parts[1])
+          } else if (type === 'vehicular' && onVehicularPhotosCapture && parts.length === 3) {
+            onVehicularPhotosCapture(parts[0], parts[1], parts[2])
+          }
+        })
+
+        setCaptureMessage('✓ Fotos cargadas automáticamente')
+        setTimeout(() => {
+          setCaptureMessage('')
+          setShowEditor(false)
+          setCapturedImage(null)
+          setCropBoxes([])
+        }, 2000)
+      }, 100)
+
+      return true
+    } catch (error) {
+      console.error('Error al cargar calibración:', error)
+      return false
+    }
+  }
 
   const handleCapture = async () => {
     try {
@@ -72,8 +159,15 @@ export default function ScreenCapture({
       setShowEditor(true)
       setCropBoxes([])
       setCurrentBox(null)
-      setCaptureMessage('✓ Pantalla capturada. Dibuja los recortes.')
-      setTimeout(() => setCaptureMessage(''), 2000)
+
+      // Si NO está en modo calibración y hay calibración guardada, aplicarla automáticamente
+      if (!isCalibrationMode && hasCalibration) {
+        setCaptureMessage('✓ Pantalla capturada. Aplicando calibración...')
+        loadAndApplyCalibration({ width: video.videoWidth, height: video.videoHeight })
+      } else {
+        setCaptureMessage('✓ Pantalla capturada. Dibuja los recortes.')
+        setTimeout(() => setCaptureMessage(''), 2000)
+      }
     } catch (error: any) {
       console.error('Error al capturar pantalla:', error)
       const errorMsg = error?.name === 'NotAllowedError'
@@ -238,13 +332,35 @@ export default function ScreenCapture({
 
   return (
     <div className="screen-capture">
-      <button
-        className={`btn-analyze ${type}-analyze`}
-        onClick={handleCapture}
-        disabled={isCapturing}
-      >
-        {isCapturing ? 'Capturando...' : 'Capturar Pantalla'}
-      </button>
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <button
+          className={`btn-analyze ${type}-analyze`}
+          onClick={() => {
+            setIsCalibrationMode(!isCalibrationMode)
+            setCapturedImage(null)
+            setShowEditor(false)
+            setCropBoxes([])
+          }}
+        >
+          {isCalibrationMode ? '✕ Salir de Calibración' : '⚙️ Calibrar'}
+        </button>
+        <button
+          className={`btn-analyze ${type}-analyze`}
+          onClick={handleCapture}
+          disabled={isCapturing}
+        >
+          {isCapturing ? 'Capturando...' : (hasCalibration && !isCalibrationMode ? 'Capturar (Auto)' : 'Capturar Pantalla')}
+        </button>
+        {hasCalibration && !isCalibrationMode && (
+          <button
+            className="btn-analyze"
+            style={{ backgroundColor: '#8B1F2D' }}
+            onClick={() => setIsCalibrationMode(true)}
+          >
+            🔄 Recalibrar
+          </button>
+        )}
+      </div>
 
       {captureMessage && (
         <div className={`capture-message ${captureMessage.includes('Dibuja') ? 'info' : captureMessage.includes('✓') ? 'success' : 'error'}`}>
@@ -257,8 +373,8 @@ export default function ScreenCapture({
         <div className="crop-editor-overlay">
           <div className="crop-editor-container">
             <div className="crop-editor-header">
-              <h2>Editor de Recortes de Cámaras</h2>
-              <p>Dibuja rectángulos alrededor de cada cámara. Mínimo 20x20 píxeles.</p>
+              <h2>{isCalibrationMode ? '⚙️ Modo Calibración' : 'Editor de Recortes de Cámaras'}</h2>
+              <p>{isCalibrationMode ? 'Define las coordenadas. Se guardarán para uso futuro.' : 'Dibuja rectángulos alrededor de cada cámara. Mínimo 20x20 píxeles.'}</p>
             </div>
 
             <div className="crop-editor-content">
@@ -302,8 +418,9 @@ export default function ScreenCapture({
                         <button
                           className="btn-crop-download"
                           onClick={() => downloadCrop(box, index)}
+                          disabled={isCalibrationMode}
                         >
-                          Cargar al Formulario ({type === 'pedestrian' ? '2' : '3'})
+                          {isCalibrationMode ? 'Usar Este' : 'Cargar al Formulario'} ({type === 'pedestrian' ? '2' : '3'})
                         </button>
                         <button
                           className="btn-crop-delete"
@@ -319,7 +436,12 @@ export default function ScreenCapture({
             </div>
 
             <div className="crop-editor-actions">
-              {cropBoxes.length > 0 && (
+              {cropBoxes.length > 0 && isCalibrationMode && (
+                <button className="btn-download-all" style={{ backgroundColor: '#0073E6' }} onClick={saveCalibration}>
+                  💾 Guardar Calibración
+                </button>
+              )}
+              {cropBoxes.length > 0 && !isCalibrationMode && (
                 <button className="btn-download-all" onClick={downloadAll}>
                   Cargar Todos al Formulario ({cropBoxes.length})
                 </button>
