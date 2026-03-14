@@ -73,6 +73,10 @@
   margin-bottom: 30px;
 }
 
+.vehicular-photos {
+  grid-template-columns: repeat(3, 1fr) !important;
+}
+
 .photo-box {
   width: 100%;
   height: 280px;
@@ -343,8 +347,12 @@
     gap: 15px;
   }
 
+  .vehicular-photos {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
   .photo-box {
-    height: 220px;
+    height: 100px;
   }
 
   .photo-placeholder span {

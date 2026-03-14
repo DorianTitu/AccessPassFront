@@ -16,6 +16,7 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
 
   const [photoPlate, setPhotoPlate] = useState<string | null>(null)
   const [photoDriver, setPhotoDriver] = useState<string | null>(null)
+  const [photoCedula, setPhotoCedula] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showConfirm, setShowConfirm] = useState(false)
 
@@ -43,6 +44,7 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
     if (!formData.reason) newErrors.reason = 'Selecciona un motivo'
     if (!photoPlate) newErrors.photoPlate = 'La foto de placa es requerida'
     if (!photoDriver) newErrors.photoDriver = 'La foto del conductor es requerida'
+    if (!photoCedula) newErrors.photoCedula = 'La foto de cédula es requerida'
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -61,8 +63,9 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
     onClose()
   }
 
-  const handleCapturedPhotos = (photoDriver: string, photoPlate: string) => {
+  const handleCapturedPhotos = (photoDriver: string, photoCedula: string, photoPlate: string) => {
     setPhotoDriver(photoDriver)
+    setPhotoCedula(photoCedula)
     setPhotoPlate(photoPlate)
   }
 
@@ -76,22 +79,31 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
 
         <div className="form-content">
           {/* Sección de Fotos */}
-          <div className="photos-section">
-            <div className="photo-box">
-              {photoPlate ? (
-                <img src={photoPlate} alt="Placa" className="photo-image" />
-              ) : (
-                <div className="photo-placeholder">
-                  <p>Foto Placa</p>
-                </div>
-              )}
-            </div>
+          <div className="photos-section vehicular-photos">
             <div className="photo-box">
               {photoDriver ? (
                 <img src={photoDriver} alt="Conductor" className="photo-image" />
               ) : (
                 <div className="photo-placeholder">
-                  <p>Foto Conductor</p>
+                  <p>Foto Rostro Conductor</p>
+                </div>
+              )}
+            </div>
+            <div className="photo-box">
+              {photoCedula ? (
+                <img src={photoCedula} alt="Cédula" className="photo-image" />
+              ) : (
+                <div className="photo-placeholder">
+                  <p>Foto Cédula Conductor</p>
+                </div>
+              )}
+            </div>
+            <div className="photo-box">
+              {photoPlate ? (
+                <img src={photoPlate} alt="Placa" className="photo-image" />
+              ) : (
+                <div className="photo-placeholder">
+                  <p>Foto Placa Vehículo</p>
                 </div>
               )}
             </div>

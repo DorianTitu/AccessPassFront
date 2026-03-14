@@ -4,7 +4,7 @@ import './ScreenCapture.css'
 interface ScreenCaptureProps {
   type: 'pedestrian' | 'vehicular'
   onPedestrianPhotosCapture?: (photoID: string, photoFace: string) => void
-  onVehicularPhotosCapture?: (photoDriver: string, photoPlate: string) => void
+  onVehicularPhotosCapture?: (photoDriver: string, photoCedula: string, photoPlate: string) => void
 }
 
 interface CropBox {
@@ -212,7 +212,7 @@ export default function ScreenCapture({
       setCaptureMessage('✓ Fotos cargadas en el formulario')
       setTimeout(() => setCaptureMessage(''), 2000)
     } else if (type === 'vehicular' && onVehicularPhotosCapture && parts.length === 3) {
-      onVehicularPhotosCapture(parts[0], parts[2])
+      onVehicularPhotosCapture(parts[0], parts[1], parts[2])
       setCaptureMessage('✓ Fotos cargadas en el formulario')
       setTimeout(() => setCaptureMessage(''), 2000)
     }
