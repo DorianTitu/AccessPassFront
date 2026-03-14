@@ -1,0 +1,381 @@
+/* Main Dashboard Styles */
+
+.main-dashboard {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%);
+  padding: 0;
+}
+
+/* Header */
+.dashboard-header {
+  background: linear-gradient(135deg, #0073E6 0%, #005bb3 100%);
+  color: white;
+  padding: 40px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.header-content h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+.header-date {
+  font-size: 14px;
+  margin: 8px 0 0 0;
+  opacity: 0.95;
+  text-transform: capitalize;
+}
+
+.btn-new-entry {
+  background: #FFB81C;
+  color: #000;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(255, 184, 28, 0.3);
+}
+
+.btn-new-entry:hover {
+  background: #ffc544;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 184, 28, 0.4);
+}
+
+.btn-new-entry:active {
+  transform: translateY(0);
+}
+
+/* Stats Section */
+.stats-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  padding: 30px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 8px;
+  padding: 25px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+  border-left: 5px solid #0073E6;
+}
+
+.stat-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-4px);
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+.stat-value {
+  font-size: 36px;
+  font-weight: 700;
+  color: #0073E6;
+}
+
+.stat-value.pedestrian-stat {
+  color: #0073E6;
+}
+
+.stat-value.vehicular-stat {
+  color: #8B1F2D;
+}
+
+.stat-value.total-stat {
+  color: #333;
+}
+
+.stat-card:has(.pedestrian-stat) {
+  border-left-color: #0073E6;
+}
+
+.stat-card:has(.vehicular-stat) {
+  border-left-color: #8B1F2D;
+}
+
+.stat-card:has(.total-stat) {
+  border-left-color: #333;
+}
+
+/* Filters Section */
+.filters-section {
+  padding: 20px 30px;
+  max-width: 1400px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 8px;
+  margin: 0 30px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.search-box {
+  margin-bottom: 15px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.3s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #0073E6;
+  box-shadow: 0 0 0 3px rgba(0, 115, 230, 0.1);
+}
+
+.search-input::placeholder {
+  color: #999;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  padding: 8px 16px;
+  border: 2px solid #e0e0e0;
+  background: white;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.filter-btn:hover {
+  border-color: #0073E6;
+  color: #0073E6;
+}
+
+.filter-btn.active {
+  background: #0073E6;
+  border-color: #0073E6;
+  color: white;
+}
+
+/* Entries Section */
+.entries-section {
+  padding: 30px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 20px 0;
+  letter-spacing: 0.5px;
+}
+
+.table-wrapper {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.entries-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.entries-table thead {
+  background: #f8f9fa;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.entries-table th {
+  padding: 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.entries-table tbody tr {
+  border-bottom: 1px solid #e0e0e0;
+  transition: all 0.2s ease;
+}
+
+.entries-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.entries-table tr:last-child {
+  border-bottom: none;
+}
+
+.entries-table td {
+  padding: 14px 16px;
+  font-size: 14px;
+  color: #333;
+}
+
+.type-cell {
+  width: 120px;
+}
+
+.name-cell {
+  font-weight: 500;
+  color: #0073E6;
+}
+
+.identifier-cell {
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  color: #555;
+}
+
+.dept-cell {
+  color: #666;
+  font-size: 13px;
+}
+
+.time-cell {
+  text-align: right;
+  color: #999;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.badge-peatonal {
+  background: rgba(0, 115, 230, 0.15);
+  color: #0073E6;
+}
+
+.badge-vehicular {
+  background: rgba(139, 31, 45, 0.15);
+  color: #8B1F2D;
+}
+
+.no-results {
+  padding: 40px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .dashboard-header {
+    flex-direction: column;
+    text-align: center;
+    gap: 15px;
+    padding: 25px;
+  }
+
+  .header-content h1 {
+    font-size: 22px;
+  }
+
+  .btn-new-entry {
+    width: 100%;
+  }
+
+  .stats-section {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+
+  .filters-section {
+    margin: 0 20px;
+    padding: 15px;
+  }
+
+  .filter-buttons {
+    flex-direction: column;
+  }
+
+  .filter-btn {
+    width: 100%;
+  }
+
+  .entries-section {
+    padding: 20px;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  .entries-table th,
+  .entries-table td {
+    padding: 10px;
+    font-size: 12px;
+  }
+
+  .type-cell {
+    width: 90px;
+  }
+
+  .time-cell {
+    text-align: left;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-content h1 {
+    font-size: 18px;
+  }
+
+  .stat-value {
+    font-size: 28px;
+  }
+
+  .entries-table {
+    font-size: 11px;
+  }
+
+  .entries-table th,
+  .entries-table td {
+    padding: 8px;
+  }
+
+  .badge {
+    padding: 3px 6px;
+    font-size: 10px;
+  }
+}

@@ -1,0 +1,111 @@
+.dashboard {
+  min-height: 100vh;
+  background: var(--light-gray);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 20px;
+}
+
+.dashboard-container {
+  text-align: center;
+  max-width: 700px;
+  width: 100%;
+}
+
+.dashboard-title {
+  font-size: 2rem;
+  color: var(--primary-blue);
+  margin-bottom: 15px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.dashboard-subtitle {
+  font-size: 1rem;
+  color: #666;
+  margin-bottom: 50px;
+  font-weight: 400;
+  letter-spacing: 0px;
+}
+
+.options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 30px;
+  max-width: 700px;
+}
+
+.option-card {
+  background: white;
+  border-radius: 4px;
+  padding: 40px 30px;
+  border: 1px solid #ddd;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+  cursor: pointer;
+  text-align: center;
+}
+
+.option-card:hover {
+  border-color: var(--primary-blue);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+.option-icon {
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 20px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: white;
+}
+
+.pedestrian-icon {
+  background: var(--primary-blue);
+}
+
+.vehicular-icon {
+  background: var(--primary-red);
+}
+
+.option-card h2 {
+  font-size: 1.3rem;
+  margin-bottom: 10px;
+  color: #333;
+  font-weight: 600;
+}
+
+.option-card p {
+  color: #777;
+  font-size: 0.9rem;
+  margin: 0;
+  font-weight: 400;
+}
+
+@media (max-width: 600px) {
+  .dashboard-title {
+    font-size: 1.6rem;
+  }
+
+  .dashboard-subtitle {
+    font-size: 0.95rem;
+    margin-bottom: 40px;
+  }
+
+  .options-grid {
+    gap: 20px;
+  }
+
+  .option-card {
+    padding: 30px 20px;
+  }
+
+  .option-card h2 {
+    font-size: 1.1rem;
+  }
+}
