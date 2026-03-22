@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import ScreenCapture from '../components/ScreenCapture'
+import { capturarImagenesVehicular, capturarRostroConductor, capturarCedulaConductor } from '../services/api'
 import './FormStyles.css'
 
 interface VehicularFormProps {
@@ -19,6 +19,7 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
   const [photoCedula, setPhotoCedula] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showConfirm, setShowConfirm] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -42,9 +43,6 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
     if (!formData.company.trim()) newErrors.company = 'La empresa es requerida'
     if (!formData.plate.trim()) newErrors.plate = 'La placa es requerida'
     if (!formData.reason) newErrors.reason = 'Selecciona un motivo'
-    if (!photoPlate) newErrors.photoPlate = 'La foto de placa es requerida'
-    if (!photoDriver) newErrors.photoDriver = 'La foto del conductor es requerida'
-    if (!photoCedula) newErrors.photoCedula = 'La foto de cédula es requerida'
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -63,10 +61,57 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
     onClose()
   }
 
-  const handleCapturedPhotos = (photoDriver: string, photoCedula: string, photoPlate: string) => {
-    setPhotoDriver(photoDriver)
-    setPhotoCedula(photoCedula)
-    setPhotoPlate(photoPlate)
+  const handleCapturar = async () => {
+    setLoading(true)
+    try {
+      // Capturar placa, rostro y cédula en paralelo
+      const [placaResult, rostroResult, cedulaResult] = await Promise.all([
+        capturarImagenesVehicular(),
+        capturarRostroConductor(),
+        capturarCedulaConductor()
+      ])
+
+      let errorCount = 0
+
+      // Procesar captura de placa
+      if (placaResult.exito && placaResult.fotoPlaca) {
+        const imageData = typeof placaResult.fotoPlaca === 'string' && placaResult.fotoPlaca.startsWith('data:') 
+          ? placaResult.fotoPlaca 
+          : `data:image/jpeg;base64,${placaResult.fotoPlaca}`
+        setPhotoPlate(imageData)
+      } else {
+        errorCount++
+      }
+
+      // Procesar captura de rostro
+      if (rostroResult.exito && rostroResult.fotoDriver) {
+        const imageData = typeof rostroResult.fotoDriver === 'string' && rostroResult.fotoDriver.startsWith('data:') 
+          ? rostroResult.fotoDriver 
+          : `data:image/jpeg;base64,${rostroResult.fotoDriver}`
+        setPhotoDriver(imageData)
+      } else {
+        errorCount++
+      }
+
+      // Procesar captura de cédula
+      if (cedulaResult.exito && cedulaResult.fotoCedula) {
+        const imageData = typeof cedulaResult.fotoCedula === 'string' && cedulaResult.fotoCedula.startsWith('data:') 
+          ? cedulaResult.fotoCedula 
+          : `data:image/jpeg;base64,${cedulaResult.fotoCedula}`
+        setPhotoCedula(imageData)
+      } else {
+        errorCount++
+      }
+
+      if (errorCount > 0) {
+        alert(`Error: Solo se capturaron ${3 - errorCount} de 3 imágenes`)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al capturar imágenes')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -81,20 +126,20 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
           {/* Sección de Fotos */}
           <div className="photos-section vehicular-photos">
             <div className="photo-box">
-              {photoDriver ? (
-                <img src={photoDriver} alt="Conductor" className="photo-image" />
-              ) : (
-                <div className="photo-placeholder">
-                  <p>Foto Rostro Conductor</p>
-                </div>
-              )}
-            </div>
-            <div className="photo-box">
               {photoCedula ? (
                 <img src={photoCedula} alt="Cédula" className="photo-image" />
               ) : (
                 <div className="photo-placeholder">
                   <p>Foto Cédula Conductor</p>
+                </div>
+              )}
+            </div>
+            <div className="photo-box">
+              {photoDriver ? (
+                <img src={photoDriver} alt="Conductor" className="photo-image" />
+              ) : (
+                <div className="photo-placeholder">
+                  <p>Foto Rostro Conductor</p>
                 </div>
               )}
             </div>
@@ -164,11 +209,15 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
             </div>
           </div>
 
-          {/* Componente de Captura */}
-          <ScreenCapture type="vehicular" onVehicularPhotosCapture={handleCapturedPhotos} />
-
           {/* Botones de Acción */}
           <div className="form-buttons">
+            <button
+              className="btn-capture vehicular-btn"
+              onClick={handleCapturar}
+              disabled={loading}
+            >
+              {loading ? 'Capturando...' : 'Capturar Nuevo Registro'}
+            </button>
             <button className="btn-save vehicular-btn" onClick={handleSave}>Guardar Registro</button>
             <button className="btn-cancel" onClick={onClose}>Cancelar</button>
           </div>
@@ -185,6 +234,16 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
               <button className="btn-confirm" onClick={confirmSave}>Confirmar</button>
               <button className="btn-cancel-confirm" onClick={() => setShowConfirm(false)}>Cancelar</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Loading Overlay */}
+      {loading && (
+        <div className="loading-overlay">
+          <div className="loading-container">
+            <div className="spinner"></div>
+            <p>Extrayendo información...</p>
           </div>
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import ScreenCapture from '../components/ScreenCapture'
+import { capturarImagenesPeatonal } from '../services/api'
 import './FormStyles.css'
 
 interface PedestrianFormProps {
@@ -18,6 +18,7 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
   const [photoFace, setPhotoFace] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showConfirm, setShowConfirm] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -41,8 +42,6 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
     if (!formData.cedula.trim()) newErrors.cedula = 'La cédula es requerida'
     if (!formData.department) newErrors.department = 'Selecciona un departamento'
     if (!formData.reason) newErrors.reason = 'Selecciona un motivo'
-    if (!photoID) newErrors.photoID = 'La foto de cédula es requerida'
-    if (!photoFace) newErrors.photoFace = 'La foto de rostro es requerida'
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -61,12 +60,27 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
     onClose()
   }
 
-
-
-  const handleCapturedPhotos = (photoID: string, photoFace: string) => {
-    setPhotoID(photoID)
-    setPhotoFace(photoFace)
+  const handleCapturar = async () => {
+    setLoading(true)
+    try {
+      const result = await capturarImagenesPeatonal()
+      if (result.exito) {
+        setPhotoID(result.fotoID)
+        setPhotoFace(result.fotoFace)
+      } else {
+        alert('Error al capturar imágenes')
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Error al capturar imágenes')
+    } finally {
+      setLoading(false)
+    }
   }
+
+
+
+
 
   return (
     <div className="form-modal">
@@ -159,11 +173,15 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
             </div>
           </div>
 
-          {/* Componente de Captura */}
-          <ScreenCapture type="pedestrian" onPedestrianPhotosCapture={handleCapturedPhotos} />
-
           {/* Botones de Acción */}
           <div className="form-buttons">
+            <button
+              className="btn-capture pedestrian-btn"
+              onClick={handleCapturar}
+              disabled={loading}
+            >
+              {loading ? 'Capturando...' : 'Capturar Nuevo Registro'}
+            </button>
             <button className="btn-save pedestrian-btn" onClick={handleSave}>Guardar Registro</button>
             <button className="btn-cancel" onClick={onClose}>Cancelar</button>
           </div>
@@ -180,6 +198,16 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
               <button className="btn-confirm" onClick={confirmSave}>Confirmar</button>
               <button className="btn-cancel-confirm" onClick={() => setShowConfirm(false)}>Cancelar</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Loading Overlay */}
+      {loading && (
+        <div className="loading-overlay">
+          <div className="loading-container">
+            <div className="spinner"></div>
+            <p>Extrayendo información...</p>
           </div>
         </div>
       )}
