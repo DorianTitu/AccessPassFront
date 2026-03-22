@@ -1,0 +1,29 @@
+{
+  "departamentos": [
+    {
+      "id": 1,
+      "nombre": "Administración",
+      "motivos": ["Reunión", "Entrega de documentos", "Capacitación", "Auditoría"]
+    },
+    {
+      "id": 2,
+      "nombre": "Ventas",
+      "motivos": ["Prospección", "Cierre de venta", "Presentación de producto", "Negociación"]
+    },
+    {
+      "id": 3,
+      "nombre": "Logística",
+      "motivos": ["Recolección", "Entrega", "Inventario", "Devolución"]
+    },
+    {
+      "id": 4,
+      "nombre": "IT",
+      "motivos": ["Soporte técnico", "Instalación", "Capacitación", "Mantenimiento"]
+    },
+    {
+      "id": 5,
+      "nombre": "Recursos Humanos",
+      "motivos": ["Entrevista", "Capacitación", "Orientación", "Trámites administrativos"]
+    }
+  ]
+}

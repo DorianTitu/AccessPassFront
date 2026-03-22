@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { capturarImagenesVehicular, capturarRostroConductor, capturarCedulaConductor } from '../services/api'
+import { obtenerDepartamentos, obtenerMotivos } from '../services/configuracion'
+import DepartamentosModal from '../components/DepartamentosModal'
 import './FormStyles.css'
 
 interface VehicularFormProps {
@@ -8,11 +10,17 @@ interface VehicularFormProps {
 
 export default function VehicularForm({ onClose }: VehicularFormProps) {
   const [formData, setFormData] = useState({
-    driverName: '',
-    company: '',
-    plate: '',
-    reason: ''
+    nombres: '',
+    apellidos: '',
+    cedula: '',
+    departamento: '',
+    motivo: ''
   })
+
+  const [horaIngreso, setHoraIngreso] = useState<string>('')
+  const [departamentos, setDepartamentos] = useState(obtenerDepartamentos())
+  const [motivosFiltrados, setMotivosFiltrados] = useState<string[]>([])
+  const [mostrarModalConfig, setMostrarModalConfig] = useState(false)
 
   const [photoPlate, setPhotoPlate] = useState<string | null>(null)
   const [photoDriver, setPhotoDriver] = useState<string | null>(null)
@@ -20,6 +28,37 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
+
+  // Obtener hora actual al montar el componente
+  useEffect(() => {
+    const ahora = new Date()
+    const horaFormato = ahora.toLocaleTimeString('es-ES', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      second: '2-digit'
+    })
+    setHoraIngreso(horaFormato)
+  }, [])
+
+  // Actualizar motivos cuando cambia el departamento
+  useEffect(() => {
+    if (formData.departamento) {
+      const deptId = parseInt(formData.departamento)
+      const motivos = obtenerMotivos(deptId)
+      setMotivosFiltrados(motivos)
+      setFormData(prev => ({
+        ...prev,
+        motivo: ''
+      }))
+    } else {
+      setMotivosFiltrados([])
+    }
+  }, [formData.departamento])
+
+  const handleCerrarModalConfig = () => {
+    setMostrarModalConfig(false)
+    setDepartamentos(obtenerDepartamentos())
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -39,10 +78,11 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
 
-    if (!formData.driverName.trim()) newErrors.driverName = 'El nombre del conductor es requerido'
-    if (!formData.company.trim()) newErrors.company = 'La empresa es requerida'
-    if (!formData.plate.trim()) newErrors.plate = 'La placa es requerida'
-    if (!formData.reason) newErrors.reason = 'Selecciona un motivo'
+    if (!formData.nombres.trim()) newErrors.nombres = 'El nombre es requerido'
+    if (!formData.apellidos.trim()) newErrors.apellidos = 'El apellido es requerido'
+    if (!formData.cedula.trim()) newErrors.cedula = 'La cédula es requerida'
+    if (!formData.departamento) newErrors.departamento = 'Selecciona un departamento'
+    if (!formData.motivo) newErrors.motivo = 'Selecciona un motivo'
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -99,6 +139,14 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
           ? cedulaResult.fotoCedula 
           : `data:image/jpeg;base64,${cedulaResult.fotoCedula}`
         setPhotoCedula(imageData)
+        
+        // Llenar datos OCR en los campos del formulario
+        setFormData(prev => ({
+          ...prev,
+          cedula: cedulaResult.nui || prev.cedula,
+          nombres: cedulaResult.nombres || prev.nombres,
+          apellidos: cedulaResult.apellidos || prev.apellidos
+        }))
       } else {
         errorCount++
       }
@@ -119,7 +167,10 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
       <div className="form-container">
         <div className="form-header vehicular-header">
           <h1>REGISTRO INGRESO VEHICULAR</h1>
-          <button className="close-button" onClick={onClose}>✕</button>
+          <div className="header-buttons">
+            <button className="btn-config" onClick={() => setMostrarModalConfig(true)}>Configurar</button>
+            <button className="close-button" onClick={onClose}>✕</button>
+          </div>
         </div>
 
         <div className="form-content">
@@ -157,55 +208,85 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
           {/* Formulario */}
           <div className="form-fields">
             <div className="form-group">
-              <label>Nombre del Conductor: <span className="required">*</span></label>
+              <label>Nombres: <span className="required">*</span></label>
               <input
                 type="text"
-                name="driverName"
-                placeholder="Ingrese el nombre del conductor"
-                value={formData.driverName}
+                name="nombres"
+                placeholder="Ingrese el nombre"
+                value={formData.nombres}
                 onChange={handleInputChange}
-                className={errors.driverName ? 'input-error' : ''}
+                className={errors.nombres ? 'input-error' : ''}
               />
-              {errors.driverName && <span className="error-message">{errors.driverName}</span>}
+              {errors.nombres && <span className="error-message">{errors.nombres}</span>}
             </div>
 
             <div className="form-group">
-              <label>Empresa: <span className="required">*</span></label>
+              <label>Apellidos: <span className="required">*</span></label>
               <input
                 type="text"
-                name="company"
-                placeholder="Ingrese el nombre de la empresa"
-                value={formData.company}
+                name="apellidos"
+                placeholder="Ingrese los apellidos"
+                value={formData.apellidos}
                 onChange={handleInputChange}
-                className={errors.company ? 'input-error' : ''}
+                className={errors.apellidos ? 'input-error' : ''}
               />
-              {errors.company && <span className="error-message">{errors.company}</span>}
+              {errors.apellidos && <span className="error-message">{errors.apellidos}</span>}
             </div>
 
             <div className="form-group">
-              <label>Placa: <span className="required">*</span></label>
+              <label>Cédula: <span className="required">*</span></label>
               <input
                 type="text"
-                name="plate"
-                placeholder="Ej: ABC-1234"
-                value={formData.plate}
+                name="cedula"
+                placeholder="Ej: 0912345678"
+                value={formData.cedula}
                 onChange={handleInputChange}
-                className={errors.plate ? 'input-error' : ''}
+                className={errors.cedula ? 'input-error' : ''}
               />
-              {errors.plate && <span className="error-message">{errors.plate}</span>}
+              {errors.cedula && <span className="error-message">{errors.cedula}</span>}
             </div>
 
             <div className="form-group">
-              <label>Motivo de Ingreso: <span className="required">*</span></label>
+              <label>Hora de Ingreso:</label>
+              <input
+                type="text"
+                value={horaIngreso}
+                readOnly
+                className="input-readonly"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Departamento: <span className="required">*</span></label>
               <select
-                name="reason"
-                value={formData.reason}
+                name="departamento"
+                value={formData.departamento}
                 onChange={handleInputChange}
-                className={errors.reason ? 'input-error' : ''}
+                className={errors.departamento ? 'input-error' : ''}
               >
                 <option value="">Seleccionar...</option>
+                {departamentos.map(dept => (
+                  <option key={dept.id} value={dept.id}>{dept.nombre}</option>
+                ))}
               </select>
-              {errors.reason && <span className="error-message">{errors.reason}</span>}
+              {errors.departamento && <span className="error-message">{errors.departamento}</span>}
+            </div>
+
+            <div className="form-group">
+              <label>Motivo: <span className="required">*</span></label>
+              <select
+                name="motivo"
+                value={formData.motivo}
+                onChange={handleInputChange}
+                disabled={!formData.departamento}
+                className={errors.motivo ? 'input-error' : ''}
+              >
+                <option value="">Seleccionar...</option>
+                {motivosFiltrados.map((motivo, idx) => (
+                  <option key={idx} value={motivo}>{motivo}</option>
+                ))}
+              </select>
+              {errors.motivo && <span className="error-message">{errors.motivo}</span>}
             </div>
           </div>
 
@@ -247,6 +328,12 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
           </div>
         </div>
       )}
+
+      {/* Modal de Configuración */}
+      <DepartamentosModal 
+        isOpen={mostrarModalConfig} 
+        onClose={handleCerrarModalConfig}
+      />
     </div>
   )
 }

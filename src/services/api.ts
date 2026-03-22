@@ -257,10 +257,13 @@ export async function capturarRostroConductor(): Promise<{
 
 /**
  * Captura imagen de la cédula del conductor
- * @returns Foto de la cédula en base64
+ * @returns Foto de la cédula en base64 + datos OCR
  */
 export async function capturarCedulaConductor(): Promise<{
   fotoCedula: string
+  nui: string
+  nombres: string
+  apellidos: string
   exito: boolean
 }> {
   try {
@@ -276,23 +279,39 @@ export async function capturarCedulaConductor(): Promise<{
     const data = await response.json()
     console.log('Respuesta del endpoint cédula:', data)
 
-    // El endpoint devuelve {success: boolean, image_base64: string, ...}
+    // El endpoint devuelve {success: boolean, image_base64: string, ocr_data: {...}, ...}
     let imagen = ''
     let exito = false
+    let nui = ''
+    let nombres = ''
+    let apellidos = ''
     
     if (data && typeof data === 'object') {
       exito = data.success === true
       imagen = data.image_base64 || ''
+      
+      // Extraer datos OCR
+      if (data.ocr_data) {
+        nui = data.ocr_data.nui || ''
+        nombres = data.ocr_data.nombres || ''
+        apellidos = data.ocr_data.apellidos || ''
+      }
     }
 
     return {
       fotoCedula: imagen,
+      nui: nui,
+      nombres: nombres,
+      apellidos: apellidos,
       exito: exito && !!imagen
     }
   } catch (error) {
     console.error('Error al capturar cédula del conductor:', error)
     return {
       fotoCedula: '',
+      nui: '',
+      nombres: '',
+      apellidos: '',
       exito: false
     }
   }
@@ -329,6 +348,108 @@ export async function capturarImagenesPeatonal(): Promise<{
     console.error('Error al capturar imágenes peatonal:', error)
     return {
       fotoID: '',
+      fotoFace: '',
+      exito: false
+    }
+  }
+}
+
+/**
+ * Captura imagen de la cédula para registro peatonal (con OCR)
+ * @returns Foto de la cédula en base64 + datos OCR (nui, nombres, apellidos)
+ */
+export async function capturarCedulaPeatonal(): Promise<{
+  fotoID: string
+  nui: string
+  nombres: string
+  apellidos: string
+  exito: boolean
+}> {
+  try {
+    console.log('Iniciando captura de cédula peatonal...')
+    const response = await fetch('/capture/camara_cedula_entrada_vehicular', {
+      method: 'POST'
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error del servidor: ${response.status}`)
+    }
+
+    const data = await response.json()
+    console.log('Respuesta del endpoint cédula peatonal:', data)
+
+    let imagen = ''
+    let exito = false
+    let nui = ''
+    let nombres = ''
+    let apellidos = ''
+    
+    if (data && typeof data === 'object') {
+      exito = data.success === true
+      imagen = data.image_base64 || ''
+      
+      if (data.ocr_data) {
+        nui = data.ocr_data.nui || ''
+        nombres = data.ocr_data.nombres || ''
+        apellidos = data.ocr_data.apellidos || ''
+      }
+    }
+
+    return {
+      fotoID: imagen,
+      nui: nui,
+      nombres: nombres,
+      apellidos: apellidos,
+      exito: exito && !!imagen
+    }
+  } catch (error) {
+    console.error('Error al capturar cédula peatonal:', error)
+    return {
+      fotoID: '',
+      nui: '',
+      nombres: '',
+      apellidos: '',
+      exito: false
+    }
+  }
+}
+
+/**
+ * Captura imagen del rostro para registro peatonal
+ * @returns Foto del rostro en base64
+ */
+export async function capturarRostroPeatonal(): Promise<{
+  fotoFace: string
+  exito: boolean
+}> {
+  try {
+    console.log('Iniciando captura de rostro peatonal...')
+    const response = await fetch('/capture/camara_usuario_entrada_vehicular', {
+      method: 'POST'
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error del servidor: ${response.status}`)
+    }
+
+    const data = await response.json()
+    console.log('Respuesta del endpoint rostro peatonal:', data)
+
+    let imagen = ''
+    let exito = false
+    
+    if (data && typeof data === 'object') {
+      exito = data.success === true
+      imagen = data.image_base64 || ''
+    }
+
+    return {
+      fotoFace: imagen,
+      exito: exito && !!imagen
+    }
+  } catch (error) {
+    console.error('Error al capturar rostro peatonal:', error)
+    return {
       fotoFace: '',
       exito: false
     }

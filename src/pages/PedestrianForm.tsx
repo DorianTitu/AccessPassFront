@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import { capturarImagenesPeatonal } from '../services/api'
+import { useState, useEffect } from 'react'
+import { capturarCedulaPeatonal, capturarRostroPeatonal } from '../services/api'
+import { obtenerDepartamentos, obtenerMotivos } from '../services/configuracion'
+import DepartamentosModal from '../components/DepartamentosModal'
 import './FormStyles.css'
 
 interface PedestrianFormProps {
@@ -8,17 +10,54 @@ interface PedestrianFormProps {
 
 export default function PedestrianForm({ onClose }: PedestrianFormProps) {
   const [formData, setFormData] = useState({
-    fullName: '',
+    nombres: '',
+    apellidos: '',
     cedula: '',
-    department: '',
-    reason: ''
+    departamento: '',
+    motivo: ''
   })
+
+  const [horaIngreso, setHoraIngreso] = useState<string>('')
+  const [departamentos, setDepartamentos] = useState(obtenerDepartamentos())
+  const [motivosFiltrados, setMotivosFiltrados] = useState<string[]>([])
+  const [mostrarModalConfig, setMostrarModalConfig] = useState(false)
 
   const [photoID, setPhotoID] = useState<string | null>(null)
   const [photoFace, setPhotoFace] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
+
+  // Obtener hora actual al montar el componente
+  useEffect(() => {
+    const ahora = new Date()
+    const horaFormato = ahora.toLocaleTimeString('es-ES', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      second: '2-digit'
+    })
+    setHoraIngreso(horaFormato)
+  }, [])
+
+  // Actualizar motivos cuando cambia el departamento
+  useEffect(() => {
+    if (formData.departamento) {
+      const deptId = parseInt(formData.departamento)
+      const motivos = obtenerMotivos(deptId)
+      setMotivosFiltrados(motivos)
+      setFormData(prev => ({
+        ...prev,
+        motivo: ''
+      }))
+    } else {
+      setMotivosFiltrados([])
+    }
+  }, [formData.departamento])
+
+  const handleCerrarModalConfig = () => {
+    setMostrarModalConfig(false)
+    setDepartamentos(obtenerDepartamentos())
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -38,10 +77,11 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
 
-    if (!formData.fullName.trim()) newErrors.fullName = 'El nombre es requerido'
+    if (!formData.nombres.trim()) newErrors.nombres = 'El nombre es requerido'
+    if (!formData.apellidos.trim()) newErrors.apellidos = 'El apellido es requerido'
     if (!formData.cedula.trim()) newErrors.cedula = 'La cédula es requerida'
-    if (!formData.department) newErrors.department = 'Selecciona un departamento'
-    if (!formData.reason) newErrors.reason = 'Selecciona un motivo'
+    if (!formData.departamento) newErrors.departamento = 'Selecciona un departamento'
+    if (!formData.motivo) newErrors.motivo = 'Selecciona un motivo'
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -63,12 +103,44 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
   const handleCapturar = async () => {
     setLoading(true)
     try {
-      const result = await capturarImagenesPeatonal()
-      if (result.exito) {
-        setPhotoID(result.fotoID)
-        setPhotoFace(result.fotoFace)
+      // Capturar cédula y rostro en paralelo
+      const [cedulaResult, rostroResult] = await Promise.all([
+        capturarCedulaPeatonal(),
+        capturarRostroPeatonal()
+      ])
+
+      let errorCount = 0
+
+      // Procesar captura de cédula
+      if (cedulaResult.exito && cedulaResult.fotoID) {
+        const imageData = typeof cedulaResult.fotoID === 'string' && cedulaResult.fotoID.startsWith('data:') 
+          ? cedulaResult.fotoID 
+          : `data:image/jpeg;base64,${cedulaResult.fotoID}`
+        setPhotoID(imageData)
+        
+        // Llenar datos OCR en los campos del formulario
+        setFormData(prev => ({
+          ...prev,
+          cedula: cedulaResult.nui || prev.cedula,
+          nombres: cedulaResult.nombres || prev.nombres,
+          apellidos: cedulaResult.apellidos || prev.apellidos
+        }))
       } else {
-        alert('Error al capturar imágenes')
+        errorCount++
+      }
+
+      // Procesar captura de rostro
+      if (rostroResult.exito && rostroResult.fotoFace) {
+        const imageData = typeof rostroResult.fotoFace === 'string' && rostroResult.fotoFace.startsWith('data:') 
+          ? rostroResult.fotoFace 
+          : `data:image/jpeg;base64,${rostroResult.fotoFace}`
+        setPhotoFace(imageData)
+      } else {
+        errorCount++
+      }
+
+      if (errorCount > 0) {
+        alert(`Error: Solo se capturaron ${2 - errorCount} de 2 imágenes`)
       }
     } catch (error) {
       console.error('Error:', error)
@@ -87,7 +159,10 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
       <div className="form-container">
         <div className="form-header pedestrian-header">
           <h1>REGISTRO INGRESO PEATONAL</h1>
-          <button className="close-button" onClick={onClose}>✕</button>
+          <div className="header-buttons">
+            <button className="btn-config" onClick={() => setMostrarModalConfig(true)}>Configurar</button>
+            <button className="close-button" onClick={onClose}>✕</button>
+          </div>
         </div>
 
         <div className="form-content">
@@ -116,16 +191,29 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
           {/* Formulario */}
           <div className="form-fields">
             <div className="form-group">
-              <label>Nombre Completo: <span className="required">*</span></label>
+              <label>Nombres: <span className="required">*</span></label>
               <input
                 type="text"
-                name="fullName"
-                placeholder="Ingrese el nombre completo"
-                value={formData.fullName}
+                name="nombres"
+                placeholder="Ingrese el nombre"
+                value={formData.nombres}
                 onChange={handleInputChange}
-                className={errors.fullName ? 'input-error' : ''}
+                className={errors.nombres ? 'input-error' : ''}
               />
-              {errors.fullName && <span className="error-message">{errors.fullName}</span>}
+              {errors.nombres && <span className="error-message">{errors.nombres}</span>}
+            </div>
+
+            <div className="form-group">
+              <label>Apellidos: <span className="required">*</span></label>
+              <input
+                type="text"
+                name="apellidos"
+                placeholder="Ingrese los apellidos"
+                value={formData.apellidos}
+                onChange={handleInputChange}
+                className={errors.apellidos ? 'input-error' : ''}
+              />
+              {errors.apellidos && <span className="error-message">{errors.apellidos}</span>}
             </div>
 
             <div className="form-group">
@@ -142,34 +230,46 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
             </div>
 
             <div className="form-group">
-              <label>Departamento: <span className="required">*</span></label>
-              <select
-                name="department"
-                value={formData.department}
-                onChange={handleInputChange}
-                className={errors.department ? 'input-error' : ''}
-              >
-                <option value="">Seleccionar...</option>
-                <option value="administracion">Administración</option>
-                <option value="ventas">Ventas</option>
-                <option value="logistica">Logística</option>
-                <option value="recursos-humanos">Recursos Humanos</option>
-                <option value="it">IT</option>
-              </select>
-              {errors.department && <span className="error-message">{errors.department}</span>}
+              <label>Hora de Ingreso:</label>
+              <input
+                type="text"
+                value={horaIngreso}
+                readOnly
+                className="input-readonly"
+              />
             </div>
 
             <div className="form-group">
-              <label>Motivo de Ingreso: <span className="required">*</span></label>
+              <label>Departamento: <span className="required">*</span></label>
               <select
-                name="reason"
-                value={formData.reason}
+                name="departamento"
+                value={formData.departamento}
                 onChange={handleInputChange}
-                className={errors.reason ? 'input-error' : ''}
+                className={errors.departamento ? 'input-error' : ''}
               >
                 <option value="">Seleccionar...</option>
+                {departamentos.map(dept => (
+                  <option key={dept.id} value={dept.id}>{dept.nombre}</option>
+                ))}
               </select>
-              {errors.reason && <span className="error-message">{errors.reason}</span>}
+              {errors.departamento && <span className="error-message">{errors.departamento}</span>}
+            </div>
+
+            <div className="form-group">
+              <label>Motivo: <span className="required">*</span></label>
+              <select
+                name="motivo"
+                value={formData.motivo}
+                onChange={handleInputChange}
+                disabled={!formData.departamento}
+                className={errors.motivo ? 'input-error' : ''}
+              >
+                <option value="">Seleccionar...</option>
+                {motivosFiltrados.map((motivo, idx) => (
+                  <option key={idx} value={motivo}>{motivo}</option>
+                ))}
+              </select>
+              {errors.motivo && <span className="error-message">{errors.motivo}</span>}
             </div>
           </div>
 
@@ -211,6 +311,12 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
           </div>
         </div>
       )}
+
+      {/* Modal de Configuración */}
+      <DepartamentosModal 
+        isOpen={mostrarModalConfig} 
+        onClose={handleCerrarModalConfig}
+      />
     </div>
   )
 }
