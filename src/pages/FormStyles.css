@@ -90,7 +90,7 @@
 .form-content {
   padding: 30px;
   display: grid;
-  grid-template-columns: 350px 1fr;
+  grid-template-columns: 550px 1fr;
   grid-template-rows: auto auto;
   gap: 30px;
   align-items: start;
@@ -100,18 +100,36 @@
   grid-column: 1;
   grid-row: 1 / -1;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 15px;
   margin-bottom: 0;
 }
 
+.photos-section .photo-box:first-child {
+  grid-column: 1 / -1;
+  height: 400px;
+}
+
+.photos-section .photo-box:nth-child(n+2) {
+  height: 200px;
+}
+
 .vehicular-photos {
-  grid-template-columns: 1fr !important;
+  grid-template-columns: 1fr 1fr !important;
+}
+
+.vehicular-photos .photo-box:first-child {
+  grid-column: 1 / -1;
+  height: 400px;
+}
+
+.vehicular-photos .photo-box:nth-child(2),
+.vehicular-photos .photo-box:nth-child(3) {
+  height: 200px;
 }
 
 .photo-box {
   width: 100%;
-  height: 240px;
   border: 2px solid #ddd;
   border-radius: 4px;
   display: flex;
