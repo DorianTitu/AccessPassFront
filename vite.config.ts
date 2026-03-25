@@ -10,6 +10,21 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
         rewrite: (path) => path
+      },
+      '/save': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path
+      },
+      '/get': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path
+      },
+      '/update': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path
       }
     }
   }

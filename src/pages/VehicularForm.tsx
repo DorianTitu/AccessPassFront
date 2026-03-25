@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react'
-import { capturarImagenesVehicular, capturarRostroConductor, capturarCedulaConductor } from '../services/api'
+import {
+  capturarImagenesVehicular,
+  capturarRostroConductor,
+  capturarCedulaConductor,
+  guardarRegistroVehicular
+} from '../services/api'
 import { obtenerDepartamentos, obtenerMotivos } from '../services/configuracion'
 import DepartamentosModal from '../components/DepartamentosModal'
 import './FormStyles.css'
@@ -28,6 +33,7 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [guardando, setGuardando] = useState(false)
 
   // Obtener hora actual al montar el componente
   useEffect(() => {
@@ -90,15 +96,60 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
 
   const handleSave = () => {
     if (validateForm()) {
+      if (!photoCedula || !photoDriver || !photoPlate) {
+        alert('Debes capturar las 3 imágenes (cédula, rostro y placa) antes de guardar')
+        return
+      }
       setShowConfirm(true)
     }
   }
 
-  const confirmSave = () => {
-    // Aquí iría la lógica de guardado
-    setShowConfirm(false)
-    alert('Registro guardado exitosamente')
-    onClose()
+  const getBase64Only = (value: string | null): string => {
+    if (!value) return ''
+    const parts = value.split(',')
+    return parts.length > 1 ? parts[1] : value
+  }
+
+  const confirmSave = async () => {
+    if (guardando) return
+
+    const departamentoSeleccionado = departamentos.find(
+      (dept) => dept.id === parseInt(formData.departamento)
+    )
+
+    if (!departamentoSeleccionado) {
+      alert('Departamento no válido')
+      return
+    }
+
+    setGuardando(true)
+    try {
+      const response = await guardarRegistroVehicular({
+        apellidos: formData.apellidos.trim(),
+        cedula: formData.cedula.trim(),
+        departamento: departamentoSeleccionado.nombre,
+        hora_ingreso: horaIngreso,
+        imagen_cedula_base64: getBase64Only(photoCedula),
+        imagen_placa_base64: getBase64Only(photoPlate),
+        imagen_usuario_base64: getBase64Only(photoDriver),
+        motivo: formData.motivo,
+        nombres: formData.nombres.trim()
+      })
+
+      if (!response.success) {
+        alert(response.mensaje || 'No se pudo guardar el registro vehicular')
+        return
+      }
+
+      setShowConfirm(false)
+      alert(response.mensaje || 'Registro vehicular guardado exitosamente')
+      onClose()
+    } catch (error) {
+      console.error('Error al guardar registro vehicular:', error)
+      alert('Ocurrió un error al guardar el registro')
+    } finally {
+      setGuardando(false)
+    }
   }
 
   const handleCapturar = async () => {
@@ -295,12 +346,12 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
             <button
               className="btn-capture vehicular-btn"
               onClick={handleCapturar}
-              disabled={loading}
+              disabled={loading || guardando}
             >
               {loading ? 'Capturando...' : 'Capturar Nuevo Registro'}
             </button>
-            <button className="btn-save vehicular-btn" onClick={handleSave}>Guardar Registro</button>
-            <button className="btn-cancel" onClick={onClose}>Cancelar</button>
+            <button className="btn-save vehicular-btn" onClick={handleSave} disabled={guardando}>Guardar Registro</button>
+            <button className="btn-cancel" onClick={onClose} disabled={guardando}>Cancelar</button>
           </div>
         </div>
       </div>
@@ -312,8 +363,10 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
             <h2>Confirmar Registro</h2>
             <p>¿Deseas guardar este registro vehicular?</p>
             <div className="confirm-buttons">
-              <button className="btn-confirm" onClick={confirmSave}>Confirmar</button>
-              <button className="btn-cancel-confirm" onClick={() => setShowConfirm(false)}>Cancelar</button>
+              <button className="btn-confirm" onClick={confirmSave} disabled={guardando}>
+                {guardando ? 'Guardando...' : 'Confirmar'}
+              </button>
+              <button className="btn-cancel-confirm" onClick={() => setShowConfirm(false)} disabled={guardando}>Cancelar</button>
             </div>
           </div>
         </div>

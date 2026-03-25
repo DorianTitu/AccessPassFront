@@ -14,6 +14,56 @@ export interface ExtraerPlacaResponse {
   confianza: number
 }
 
+export interface GuardarRegistroVehicularPayload {
+  apellidos: string
+  cedula: string
+  departamento: string
+  hora_ingreso: string
+  imagen_cedula_base64: string
+  imagen_placa_base64: string
+  imagen_usuario_base64: string
+  motivo: string
+  nombres: string
+}
+
+export interface GuardarRegistroVehicularResponse {
+  success: boolean
+  numero_ticket?: number
+  mensaje?: string
+  ruta_ticket?: string
+  [key: string]: unknown
+}
+
+export interface TicketVehicular {
+  numero_ticket: string
+  nombres: string
+  apellidos: string
+  cedula: string
+  hora_ingreso: string
+  hora_salida: string
+  departamento: string
+  motivo: string
+  fecha_registro: string
+}
+
+export interface ObtenerRegistrosVehicularesResponse {
+  success: boolean
+  total: number
+  tickets: TicketVehicular[]
+  mensaje?: string
+}
+
+export interface ActualizarHoraSalidaPayload {
+  ticket: string
+  hora_salida: string
+}
+
+export interface ActualizarHoraSalidaResponse {
+  success: boolean
+  mensaje?: string
+  [key: string]: unknown
+}
+
 /**
  * Convierte un Data URI (Base64) a Blob
  */
@@ -166,6 +216,135 @@ export async function verificarHealth(): Promise<boolean> {
   } catch (error) {
     console.error('Backend no disponible:', error)
     return false
+  }
+}
+
+/**
+ * Guarda un registro de ingreso vehicular en el backend.
+ */
+export async function guardarRegistroVehicular(
+  payload: GuardarRegistroVehicularPayload
+): Promise<GuardarRegistroVehicularResponse> {
+  try {
+    const response = await fetch('/save/registro_vehicular', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    })
+
+    let data: GuardarRegistroVehicularResponse = { success: false }
+
+    try {
+      data = await response.json()
+    } catch {
+      // Si el backend no retorna JSON válido, se conserva el valor por defecto.
+    }
+
+    if (!response.ok) {
+      return {
+        ...data,
+        success: false,
+        mensaje: data.mensaje || `Error del servidor: ${response.status}`
+      }
+    }
+
+    return {
+      ...data,
+      success: data.success === true
+    }
+  } catch (error) {
+    console.error('Error al guardar registro vehicular:', error)
+    return {
+      success: false,
+      mensaje: 'No se pudo conectar con el servidor de guardado'
+    }
+  }
+}
+
+/**
+ * Obtiene el historico de registros vehiculares desde el backend.
+ */
+export async function obtenerRegistrosVehiculares(): Promise<ObtenerRegistrosVehicularesResponse> {
+  try {
+    const response = await fetch('/get/registro_vehicular')
+
+    let data: Partial<ObtenerRegistrosVehicularesResponse> = {}
+
+    try {
+      data = await response.json()
+    } catch {
+      // Si la respuesta no es JSON, devolvemos estructura vacia controlada.
+    }
+
+    if (!response.ok) {
+      return {
+        success: false,
+        total: 0,
+        tickets: [],
+        mensaje: data.mensaje || `Error del servidor: ${response.status}`
+      }
+    }
+
+    return {
+      success: data.success === true,
+      total: typeof data.total === 'number' ? data.total : Array.isArray(data.tickets) ? data.tickets.length : 0,
+      tickets: Array.isArray(data.tickets) ? data.tickets as TicketVehicular[] : [],
+      mensaje: data.mensaje
+    }
+  } catch (error) {
+    console.error('Error al obtener registros vehiculares:', error)
+    return {
+      success: false,
+      total: 0,
+      tickets: [],
+      mensaje: 'No se pudo conectar con el servidor para consultar el historico'
+    }
+  }
+}
+
+/**
+ * Actualiza la hora de salida de un ticket vehicular.
+ */
+export async function actualizarHoraSalida(
+  payload: ActualizarHoraSalidaPayload
+): Promise<ActualizarHoraSalidaResponse> {
+  try {
+    const response = await fetch('/update/hora_salida', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    })
+
+    let data: ActualizarHoraSalidaResponse = { success: false }
+
+    try {
+      data = await response.json()
+    } catch {
+      // Si no retorna JSON, se conserva valor por defecto.
+    }
+
+    if (!response.ok) {
+      return {
+        ...data,
+        success: false,
+        mensaje: data.mensaje || `Error del servidor: ${response.status}`
+      }
+    }
+
+    return {
+      ...data,
+      success: data.success === true
+    }
+  } catch (error) {
+    console.error('Error al actualizar hora de salida:', error)
+    return {
+      success: false,
+      mensaje: 'No se pudo conectar con el servidor para actualizar la salida'
+    }
   }
 }
 
