@@ -257,7 +257,7 @@ export async function capturarRostroConductor(): Promise<{
 
 /**
  * Captura imagen de la cédula del conductor
- * @returns Foto de la cédula en base64 + datos OCR
+ * @returns Foto de la cédula en base64 + datos OCR extraídos
  */
 export async function capturarCedulaConductor(): Promise<{
   fotoCedula: string
@@ -279,7 +279,6 @@ export async function capturarCedulaConductor(): Promise<{
     const data = await response.json()
     console.log('Respuesta del endpoint cédula:', data)
 
-    // El endpoint devuelve {success: boolean, image_base64: string, ocr_data: {...}, ...}
     let imagen = ''
     let exito = false
     let nui = ''
@@ -290,11 +289,24 @@ export async function capturarCedulaConductor(): Promise<{
       exito = data.success === true
       imagen = data.image_base64 || ''
       
-      // Extraer datos OCR
-      if (data.ocr_data) {
-        nui = data.ocr_data.nui || ''
-        nombres = data.ocr_data.nombres || ''
-        apellidos = data.ocr_data.apellidos || ''
+      // Si la captura fue exitosa, procesar la imagen con OCR
+      if (exito && imagen) {
+        // Asegurar que el formato sea correcto (Data URI)
+        const imagenDataURI = imagen.startsWith('data:') 
+          ? imagen 
+          : `data:image/jpeg;base64,${imagen}`
+        
+        console.log('Procesando imagen de cédula con OCR...')
+        const ocrResult = await extraerCamposCedula(imagenDataURI)
+        
+        if (ocrResult.exito) {
+          nui = ocrResult.nui
+          nombres = ocrResult.nombres
+          apellidos = ocrResult.apellidos
+          console.log('Datos OCR extraídos:', { nui, nombres, apellidos })
+        } else {
+          console.warn('OCR no pudo extraer datos, pero la imagen se capturó')
+        }
       }
     }
 
