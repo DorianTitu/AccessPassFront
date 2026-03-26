@@ -64,6 +64,22 @@ export interface ActualizarHoraSalidaResponse {
   [key: string]: unknown
 }
 
+export interface FotoTicket {
+  archivo: string
+  size_bytes: number
+  image_base64: string
+}
+
+export interface ObtenerFotosTicketResponse {
+  success: boolean
+  ticket?: string
+  ruta_ticket?: string
+  total_fotos?: number
+  faltantes?: string[]
+  fotos?: Record<string, FotoTicket>
+  mensaje?: string
+}
+
 /**
  * Convierte un Data URI (Base64) a Blob
  */
@@ -349,6 +365,53 @@ export async function actualizarHoraSalida(
 }
 
 /**
+ * Obtiene las fotos asociadas a un ticket vehicular.
+ */
+export async function obtenerFotosTicket(ticket: string | number): Promise<ObtenerFotosTicketResponse> {
+  try {
+    const response = await fetch(`/get/fotos_ticket/${encodeURIComponent(String(ticket))}`)
+
+    let data: Partial<ObtenerFotosTicketResponse> = {}
+
+    try {
+      data = await response.json()
+    } catch {
+      // Si no retorna JSON valido, devolvemos una respuesta controlada.
+    }
+
+    if (!response.ok) {
+      return {
+        success: false,
+        ticket: data.ticket,
+        ruta_ticket: data.ruta_ticket,
+        total_fotos: data.total_fotos,
+        faltantes: Array.isArray(data.faltantes) ? data.faltantes : [],
+        fotos: data.fotos,
+        mensaje: data.mensaje || `Error del servidor: ${response.status}`
+      }
+    }
+
+    return {
+      success: data.success === true,
+      ticket: data.ticket,
+      ruta_ticket: data.ruta_ticket,
+      total_fotos: data.total_fotos,
+      faltantes: Array.isArray(data.faltantes) ? data.faltantes : [],
+      fotos: data.fotos,
+      mensaje: data.mensaje
+    }
+  } catch (error) {
+    console.error('Error al obtener fotos del ticket:', error)
+    return {
+      success: false,
+      faltantes: [],
+      fotos: {},
+      mensaje: 'No se pudo conectar con el servidor para consultar las fotos del ticket'
+    }
+  }
+}
+
+/**
  * Captura imagen de placa vehicular
  * @returns Foto de placa en base64
  */
@@ -467,25 +530,14 @@ export async function capturarCedulaConductor(): Promise<{
     if (data && typeof data === 'object') {
       exito = data.success === true
       imagen = data.image_base64 || ''
-      
-      // Si la captura fue exitosa, procesar la imagen con OCR
-      if (exito && imagen) {
-        // Asegurar que el formato sea correcto (Data URI)
-        const imagenDataURI = imagen.startsWith('data:') 
-          ? imagen 
-          : `data:image/jpeg;base64,${imagen}`
-        
-        console.log('Procesando imagen de cédula con OCR...')
-        const ocrResult = await extraerCamposCedula(imagenDataURI)
-        
-        if (ocrResult.exito) {
-          nui = ocrResult.nui
-          nombres = ocrResult.nombres
-          apellidos = ocrResult.apellidos
-          console.log('Datos OCR extraídos:', { nui, nombres, apellidos })
-        } else {
-          console.warn('OCR no pudo extraer datos, pero la imagen se capturó')
-        }
+
+      // El endpoint ya retorna OCR embebido en ocr_data
+      const ocrData = data.ocr_data && typeof data.ocr_data === 'object' ? data.ocr_data : null
+      if (ocrData) {
+        nui = ocrData.cedula || ocrData.nui || ''
+        nombres = ocrData.nombres || ''
+        apellidos = ocrData.apellidos || ''
+        console.log('Datos OCR extraídos:', { nui, nombres, apellidos })
       }
     }
 
@@ -580,7 +632,7 @@ export async function capturarCedulaPeatonal(): Promise<{
       imagen = data.image_base64 || ''
       
       if (data.ocr_data) {
-        nui = data.ocr_data.nui || ''
+        nui = data.ocr_data.cedula || data.ocr_data.nui || ''
         nombres = data.ocr_data.nombres || ''
         apellidos = data.ocr_data.apellidos || ''
       }

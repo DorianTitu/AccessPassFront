@@ -3,11 +3,22 @@ import './MainDashboard.css'
 import Dashboard from './Dashboard'
 import PedestrianForm from './PedestrianForm'
 import VehicularForm from './VehicularForm'
-import { TicketVehicular, actualizarHoraSalida, obtenerRegistrosVehiculares } from '../services/api'
+import {
+  TicketVehicular,
+  actualizarHoraSalida,
+  obtenerFotosTicket,
+  obtenerRegistrosVehiculares
+} from '../services/api'
 
 type Page = 'main' | 'dashboard' | 'pedestrian' | 'vehicular'
 
 type FilterType = 'all' | 'open' | 'closed'
+
+const PHOTO_TYPE_LABELS: Record<string, string> = {
+  cedula: 'Cedula',
+  usuario: 'Usuario',
+  placa: 'Placa'
+}
 
 function sinSalida(ticket: TicketVehicular): boolean {
   return ticket.hora_salida.trim().toLowerCase() === 'no ha salido'
@@ -39,6 +50,16 @@ function obtenerHoraActual(): string {
   })
 }
 
+function obtenerEtiquetaFoto(tipo: string): string {
+  return PHOTO_TYPE_LABELS[tipo.toLowerCase()] || tipo
+}
+
+function construirSrcImagen(base64: string): string {
+  if (!base64) return ''
+  if (base64.startsWith('data:image')) return base64
+  return `data:image/jpeg;base64,${base64}`
+}
+
 export default function MainDashboard() {
   const [currentPage, setCurrentPage] = useState<Page>('main')
   const [searchTerm, setSearchTerm] = useState('')
@@ -48,6 +69,12 @@ export default function MainDashboard() {
   const [error, setError] = useState('')
   const [nowMs, setNowMs] = useState(Date.now())
   const [updatingTicket, setUpdatingTicket] = useState<string | null>(null)
+  const [loadingPhotosTicket, setLoadingPhotosTicket] = useState<string | null>(null)
+  const [showPhotosModal, setShowPhotosModal] = useState(false)
+  const [selectedTicketCode, setSelectedTicketCode] = useState('')
+  const [ticketPhotos, setTicketPhotos] = useState<Record<string, { archivo: string; size_bytes: number; image_base64: string }>>({})
+  const [missingPhotos, setMissingPhotos] = useState<string[]>([])
+  const [photosError, setPhotosError] = useState('')
 
   useEffect(() => {
     let activo = true
@@ -118,6 +145,53 @@ export default function MainDashboard() {
 
     setUpdatingTicket(null)
   }
+
+  const handleClosePhotosModal = () => {
+    setShowPhotosModal(false)
+    setSelectedTicketCode('')
+    setTicketPhotos({})
+    setMissingPhotos([])
+    setPhotosError('')
+  }
+
+  const handleRevisarFotos = async (ticket: TicketVehicular) => {
+    if (loadingPhotosTicket) return
+
+    setLoadingPhotosTicket(ticket.numero_ticket)
+    setPhotosError('')
+
+    const response = await obtenerFotosTicket(ticket.numero_ticket)
+
+    if (!response.success) {
+      setPhotosError(response.mensaje || 'No se pudieron cargar las fotos del ticket')
+      setLoadingPhotosTicket(null)
+      return
+    }
+
+    setSelectedTicketCode(response.ticket || ticket.numero_ticket)
+    setTicketPhotos(response.fotos || {})
+    setMissingPhotos(Array.isArray(response.faltantes) ? response.faltantes : [])
+    setShowPhotosModal(true)
+    setLoadingPhotosTicket(null)
+  }
+
+  useEffect(() => {
+    if (!showPhotosModal) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        handleClosePhotosModal()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = ''
+    }
+  }, [showPhotosModal])
 
   const filteredEntries = useMemo(() => {
     const visibles = tickets.filter((ticket) => {
@@ -269,18 +343,29 @@ export default function MainDashboard() {
                       )}
                     </td>
                     <td>
-                      {abierta ? (
+                      <div className="action-buttons">
                         <button
                           type="button"
-                          className="btn-exit"
-                          onClick={() => handleRegistrarSalida(entry)}
-                          disabled={updatingTicket === entry.numero_ticket}
+                          className="btn-photos"
+                          onClick={() => handleRevisarFotos(entry)}
+                          disabled={loadingPhotosTicket === entry.numero_ticket}
                         >
-                          {updatingTicket === entry.numero_ticket ? 'Guardando...' : 'Ha salido'}
+                          {loadingPhotosTicket === entry.numero_ticket ? 'Cargando...' : 'Revisar fotos'}
                         </button>
-                      ) : (
-                        <span className="exit-registered">Salida registrada</span>
-                      )}
+
+                        {abierta ? (
+                          <button
+                            type="button"
+                            className="btn-exit"
+                            onClick={() => handleRegistrarSalida(entry)}
+                            disabled={updatingTicket === entry.numero_ticket}
+                          >
+                            {updatingTicket === entry.numero_ticket ? 'Guardando...' : 'Ha salido'}
+                          </button>
+                        ) : (
+                          <span className="exit-registered">Salida registrada</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )
@@ -294,6 +379,59 @@ export default function MainDashboard() {
           </div>
         )}
       </section>
+
+      {showPhotosModal && (
+        <div className="photos-modal-overlay" onClick={handleClosePhotosModal}>
+          <div className="photos-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="photos-modal-header">
+              <div>
+                <h3>Fotos del ticket</h3>
+                <p>{selectedTicketCode}</p>
+              </div>
+              <button type="button" className="photos-close-btn" onClick={handleClosePhotosModal} aria-label="Cerrar modal de fotos">
+                x
+              </button>
+            </div>
+
+            {photosError ? (
+              <div className="photos-message error">{photosError}</div>
+            ) : (
+              <>
+                <div className="photos-grid">
+                  {Object.entries(ticketPhotos).map(([tipo, foto]) => (
+                    <article className="photo-card" key={tipo}>
+                      <div className="photo-card-top">
+                        <span className="photo-type">{obtenerEtiquetaFoto(tipo)}</span>
+                        <span className="photo-filename">{foto.archivo}</span>
+                      </div>
+                      <img
+                        src={construirSrcImagen(foto.image_base64)}
+                        alt={`Foto ${obtenerEtiquetaFoto(tipo)} del ticket ${selectedTicketCode}`}
+                        className="photo-image"
+                      />
+                    </article>
+                  ))}
+                </div>
+
+                {Object.keys(ticketPhotos).length === 0 && (
+                  <div className="photos-message">No hay imagenes disponibles para este ticket.</div>
+                )}
+
+                {missingPhotos.length > 0 && (
+                  <div className="missing-photos-wrap">
+                    <span>Faltantes:</span>
+                    <div className="missing-photos-list">
+                      {missingPhotos.map((item) => (
+                        <span className="missing-photo-chip" key={item}>{obtenerEtiquetaFoto(item)}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
