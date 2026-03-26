@@ -76,32 +76,29 @@ export default function MainDashboard() {
   const [missingPhotos, setMissingPhotos] = useState<string[]>([])
   const [photosError, setPhotosError] = useState('')
 
+  const cargarHistorico = async () => {
+    setLoading(true)
+    setError('')
+
+    const response = await obtenerRegistrosVehiculares()
+
+    if (response.success) {
+      setTickets(response.tickets)
+    } else {
+      setTickets([])
+      setError(response.mensaje || 'No se pudo cargar el historico vehicular')
+    }
+
+    setLoading(false)
+  }
+
   useEffect(() => {
-    let activo = true
-
-    const cargarHistorico = async () => {
-      setLoading(true)
-      setError('')
-
-      const response = await obtenerRegistrosVehiculares()
-      if (!activo) return
-
-      if (response.success) {
-        setTickets(response.tickets)
-      } else {
-        setTickets([])
-        setError(response.mensaje || 'No se pudo cargar el historico vehicular')
-      }
-
-      setLoading(false)
-    }
-
     cargarHistorico()
-
-    return () => {
-      activo = false
-    }
   }, [])
+
+  const handleRegistroExitoso = async () => {
+    await cargarHistorico()
+  }
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -222,11 +219,11 @@ export default function MainDashboard() {
   }
 
   if (currentPage === 'pedestrian') {
-    return <PedestrianForm onClose={() => handleNavigate('main')} />
+    return <PedestrianForm onClose={() => handleNavigate('main')} onSuccess={handleRegistroExitoso} />
   }
 
   if (currentPage === 'vehicular') {
-    return <VehicularForm onClose={() => handleNavigate('main')} />
+    return <VehicularForm onClose={() => handleNavigate('main')} onSuccess={handleRegistroExitoso} />
   }
 
   return (

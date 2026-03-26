@@ -6,9 +6,10 @@ import './FormStyles.css'
 
 interface PedestrianFormProps {
   onClose: () => void
+  onSuccess?: () => void | Promise<void>
 }
 
-export default function PedestrianForm({ onClose }: PedestrianFormProps) {
+export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormProps) {
   const [formData, setFormData] = useState({
     nombres: '',
     apellidos: '',
@@ -28,15 +29,24 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  // Obtener hora actual al montar el componente
+  // Actualizar hora en tiempo real
   useEffect(() => {
-    const ahora = new Date()
-    const horaFormato = ahora.toLocaleTimeString('es-ES', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      second: '2-digit'
-    })
-    setHoraIngreso(horaFormato)
+    const actualizarHora = () => {
+      const ahora = new Date()
+      const horaFormato = ahora.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      })
+      setHoraIngreso(horaFormato)
+    }
+
+    actualizarHora()
+    const intervalo = window.setInterval(actualizarHora, 1000)
+
+    return () => {
+      window.clearInterval(intervalo)
+    }
   }, [])
 
   // Actualizar motivos cuando cambia el departamento
@@ -93,10 +103,13 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
     }
   }
 
-  const confirmSave = () => {
+  const confirmSave = async () => {
     // Aquí iría la lógica de guardado
     setShowConfirm(false)
     alert('Registro guardado exitosamente')
+    if (onSuccess) {
+      await onSuccess()
+    }
     onClose()
   }
 
@@ -166,6 +179,13 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
         </div>
 
         <div className="form-content">
+          {loading && (
+            <div className="extraction-message">
+              <span className="spinner">⟳</span>
+              Capturando y extrayendo datos de la cedula. Puedes llenar departamento y motivo mientras termina.
+            </div>
+          )}
+
           {/* Sección de Fotos */}
           <div className="photos-section">
             <div className="photo-box">
@@ -173,7 +193,14 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
                 <img src={photoID} alt="Cédula" className="photo-image" />
               ) : (
                 <div className="photo-placeholder">
-                  <p>Foto Cédula</p>
+                  {loading ? (
+                    <>
+                      <div className="photo-loading-spinner" aria-hidden="true"></div>
+                      <p>Cargando cédula...</p>
+                    </>
+                  ) : (
+                    <p>Foto Cédula</p>
+                  )}
                 </div>
               )}
             </div>
@@ -182,7 +209,14 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
                 <img src={photoFace} alt="Rostro" className="photo-image" />
               ) : (
                 <div className="photo-placeholder">
-                  <p>Foto Rostro</p>
+                  {loading ? (
+                    <>
+                      <div className="photo-loading-spinner" aria-hidden="true"></div>
+                      <p>Cargando rostro...</p>
+                    </>
+                  ) : (
+                    <p>Foto Rostro</p>
+                  )}
                 </div>
               )}
             </div>
@@ -298,16 +332,6 @@ export default function PedestrianForm({ onClose }: PedestrianFormProps) {
               <button className="btn-confirm" onClick={confirmSave}>Confirmar</button>
               <button className="btn-cancel-confirm" onClick={() => setShowConfirm(false)}>Cancelar</button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Loading Overlay */}
-      {loading && (
-        <div className="loading-overlay">
-          <div className="loading-container">
-            <div className="spinner"></div>
-            <p>Extrayendo información...</p>
           </div>
         </div>
       )}

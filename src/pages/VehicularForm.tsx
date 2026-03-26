@@ -11,9 +11,10 @@ import './FormStyles.css'
 
 interface VehicularFormProps {
   onClose: () => void
+  onSuccess?: () => void | Promise<void>
 }
 
-export default function VehicularForm({ onClose }: VehicularFormProps) {
+export default function VehicularForm({ onClose, onSuccess }: VehicularFormProps) {
   const [formData, setFormData] = useState({
     nombres: '',
     apellidos: '',
@@ -35,15 +36,24 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
   const [loading, setLoading] = useState(false)
   const [guardando, setGuardando] = useState(false)
 
-  // Obtener hora actual al montar el componente
+  // Actualizar hora en tiempo real
   useEffect(() => {
-    const ahora = new Date()
-    const horaFormato = ahora.toLocaleTimeString('es-ES', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      second: '2-digit'
-    })
-    setHoraIngreso(horaFormato)
+    const actualizarHora = () => {
+      const ahora = new Date()
+      const horaFormato = ahora.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      })
+      setHoraIngreso(horaFormato)
+    }
+
+    actualizarHora()
+    const intervalo = window.setInterval(actualizarHora, 1000)
+
+    return () => {
+      window.clearInterval(intervalo)
+    }
   }, [])
 
   // Actualizar motivos cuando cambia el departamento
@@ -143,6 +153,9 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
 
       setShowConfirm(false)
       alert(response.mensaje || 'Registro vehicular guardado exitosamente')
+      if (onSuccess) {
+        await onSuccess()
+      }
       onClose()
     } catch (error) {
       console.error('Error al guardar registro vehicular:', error)
@@ -225,6 +238,13 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
         </div>
 
         <div className="form-content">
+          {loading && (
+            <div className="extraction-message">
+              <span className="spinner">⟳</span>
+              Capturando y extrayendo datos de la cedula. Puedes llenar departamento y motivo mientras termina.
+            </div>
+          )}
+
           {/* Sección de Fotos */}
           <div className="photos-section vehicular-photos">
             <div className="photo-box">
@@ -232,7 +252,14 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
                 <img src={photoCedula} alt="Cédula" className="photo-image" />
               ) : (
                 <div className="photo-placeholder">
-                  <p>Foto Cédula Conductor</p>
+                  {loading ? (
+                    <>
+                      <div className="photo-loading-spinner" aria-hidden="true"></div>
+                      <p>Cargando cédula...</p>
+                    </>
+                  ) : (
+                    <p>Foto Cédula Conductor</p>
+                  )}
                 </div>
               )}
             </div>
@@ -241,7 +268,14 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
                 <img src={photoDriver} alt="Conductor" className="photo-image" />
               ) : (
                 <div className="photo-placeholder">
-                  <p>Foto Rostro Conductor</p>
+                  {loading ? (
+                    <>
+                      <div className="photo-loading-spinner" aria-hidden="true"></div>
+                      <p>Cargando rostro...</p>
+                    </>
+                  ) : (
+                    <p>Foto Rostro Conductor</p>
+                  )}
                 </div>
               )}
             </div>
@@ -250,7 +284,14 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
                 <img src={photoPlate} alt="Placa" className="photo-image" />
               ) : (
                 <div className="photo-placeholder">
-                  <p>Foto Placa Vehículo</p>
+                  {loading ? (
+                    <>
+                      <div className="photo-loading-spinner" aria-hidden="true"></div>
+                      <p>Cargando placa...</p>
+                    </>
+                  ) : (
+                    <p>Foto Placa Vehículo</p>
+                  )}
                 </div>
               )}
             </div>
@@ -368,16 +409,6 @@ export default function VehicularForm({ onClose }: VehicularFormProps) {
               </button>
               <button className="btn-cancel-confirm" onClick={() => setShowConfirm(false)} disabled={guardando}>Cancelar</button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Loading Overlay */}
-      {loading && (
-        <div className="loading-overlay">
-          <div className="loading-container">
-            <div className="spinner"></div>
-            <p>Extrayendo información...</p>
           </div>
         </div>
       )}
