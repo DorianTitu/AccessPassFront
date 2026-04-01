@@ -3,6 +3,7 @@ import {
   capturarImagenesVehicular,
   capturarRostroConductor,
   capturarCedulaConductor,
+  extraerCedulaVehicular,
   guardarRegistroVehicular
 } from '../services/api'
 import { obtenerDepartamentos, obtenerMotivos } from '../services/configuracion'
@@ -35,6 +36,23 @@ export default function VehicularForm({ onClose, onSuccess }: VehicularFormProps
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [guardando, setGuardando] = useState(false)
+  const [ocrLoading, setOcrLoading] = useState(false)
+
+  const resetVehicularForm = () => {
+    setFormData({
+      nombres: '',
+      apellidos: '',
+      cedula: '',
+      departamento: '',
+      motivo: ''
+    })
+    setMotivosFiltrados([])
+    setErrors({})
+    setPhotoPlate(null)
+    setPhotoDriver(null)
+    setPhotoCedula(null)
+    setShowConfirm(false)
+  }
 
   // Actualizar hora en tiempo real
   useEffect(() => {
@@ -167,52 +185,103 @@ export default function VehicularForm({ onClose, onSuccess }: VehicularFormProps
 
   const handleCapturar = async () => {
     setLoading(true)
+    setOcrLoading(false)
+    resetVehicularForm()
+
     try {
-      // Capturar placa, rostro y cédula en paralelo
-      const [placaResult, rostroResult, cedulaResult] = await Promise.all([
-        capturarImagenesVehicular(),
-        capturarRostroConductor(),
-        capturarCedulaConductor()
-      ])
-
       let errorCount = 0
-
-      // Procesar captura de placa
-      if (placaResult.exito && placaResult.fotoPlaca) {
-        const imageData = typeof placaResult.fotoPlaca === 'string' && placaResult.fotoPlaca.startsWith('data:') 
-          ? placaResult.fotoPlaca 
-          : `data:image/jpeg;base64,${placaResult.fotoPlaca}`
-        setPhotoPlate(imageData)
-      } else {
+      let photoPlateTemp: string | null = null
+      let photoDriverTemp: string | null = null
+      let photoCedulaTemp: string | null = null
+      let cedulaNuiTemp = ''
+      let cedulaNombresTemp = ''
+      let cedulaApellidosTemp = ''
+      const marcaError = () => {
         errorCount++
       }
 
-      // Procesar captura de rostro
-      if (rostroResult.exito && rostroResult.fotoDriver) {
-        const imageData = typeof rostroResult.fotoDriver === 'string' && rostroResult.fotoDriver.startsWith('data:') 
-          ? rostroResult.fotoDriver 
-          : `data:image/jpeg;base64,${rostroResult.fotoDriver}`
-        setPhotoDriver(imageData)
-      } else {
-        errorCount++
-      }
+      const placaPromise = capturarImagenesVehicular().then((placaResult) => {
+        if (placaResult.exito && placaResult.fotoPlaca) {
+          const imageData = typeof placaResult.fotoPlaca === 'string' && placaResult.fotoPlaca.startsWith('data:')
+            ? placaResult.fotoPlaca
+            : `data:image/jpeg;base64,${placaResult.fotoPlaca}`
+          photoPlateTemp = imageData
+          return
+        }
 
-      // Procesar captura de cédula
-      if (cedulaResult.exito && cedulaResult.fotoCedula) {
-        const imageData = typeof cedulaResult.fotoCedula === 'string' && cedulaResult.fotoCedula.startsWith('data:') 
-          ? cedulaResult.fotoCedula 
-          : `data:image/jpeg;base64,${cedulaResult.fotoCedula}`
-        setPhotoCedula(imageData)
-        
-        // Llenar datos OCR en los campos del formulario
-        setFormData(prev => ({
-          ...prev,
-          cedula: cedulaResult.nui || prev.cedula,
-          nombres: cedulaResult.nombres || prev.nombres,
-          apellidos: cedulaResult.apellidos || prev.apellidos
-        }))
+        marcaError()
+      }).catch((error) => {
+        console.error('Error al capturar placa:', error)
+        marcaError()
+      })
+
+      const rostroPromise = capturarRostroConductor().then((rostroResult) => {
+        if (rostroResult.exito && rostroResult.fotoDriver) {
+          const imageData = typeof rostroResult.fotoDriver === 'string' && rostroResult.fotoDriver.startsWith('data:')
+            ? rostroResult.fotoDriver
+            : `data:image/jpeg;base64,${rostroResult.fotoDriver}`
+          photoDriverTemp = imageData
+          return
+        }
+
+        marcaError()
+      }).catch((error) => {
+        console.error('Error al capturar rostro:', error)
+        marcaError()
+      })
+
+      const cedulaPromise = capturarCedulaConductor().then((cedulaResult) => {
+        if (cedulaResult.exito && cedulaResult.fotoCedula) {
+          const imageData = typeof cedulaResult.fotoCedula === 'string' && cedulaResult.fotoCedula.startsWith('data:')
+            ? cedulaResult.fotoCedula
+            : `data:image/jpeg;base64,${cedulaResult.fotoCedula}`
+          photoCedulaTemp = imageData
+          cedulaNuiTemp = cedulaResult.nui || ''
+          cedulaNombresTemp = cedulaResult.nombres || ''
+          cedulaApellidosTemp = cedulaResult.apellidos || ''
+          return
+        }
+
+        marcaError()
+      }).catch((error) => {
+        console.error('Error al capturar cédula:', error)
+        marcaError()
+      })
+
+      await Promise.allSettled([placaPromise, rostroPromise, cedulaPromise])
+
+      if (photoCedulaTemp) {
+        // Mostrar las tres fotos en bloque cuando cedula ya este lista.
+        setPhotoCedula(photoCedulaTemp)
+        setPhotoDriver(photoDriverTemp)
+        setPhotoPlate(photoPlateTemp)
+
+        // El loader de campos inicia cuando ya se mostraron las imagenes.
+        setOcrLoading(true)
+        try {
+          const ocrResult = await extraerCedulaVehicular(photoCedulaTemp)
+          if (ocrResult.exito) {
+            setFormData(prev => ({
+              ...prev,
+              cedula: ocrResult.nui || prev.cedula,
+              nombres: ocrResult.nombres || prev.nombres,
+              apellidos: ocrResult.apellidos || prev.apellidos
+            }))
+          } else {
+            setFormData(prev => ({
+              ...prev,
+              cedula: cedulaNuiTemp || prev.cedula,
+              nombres: cedulaNombresTemp || prev.nombres,
+              apellidos: cedulaApellidosTemp || prev.apellidos
+            }))
+          }
+        } finally {
+          setOcrLoading(false)
+        }
       } else {
-        errorCount++
+        // Si falla cedula, mostrar al menos las que hayan llegado.
+        setPhotoDriver(photoDriverTemp)
+        setPhotoPlate(photoPlateTemp)
       }
 
       if (errorCount > 0) {
@@ -223,6 +292,7 @@ export default function VehicularForm({ onClose, onSuccess }: VehicularFormProps
       alert('Error al capturar imágenes')
     } finally {
       setLoading(false)
+      setOcrLoading(false)
     }
   }
 
@@ -301,40 +371,49 @@ export default function VehicularForm({ onClose, onSuccess }: VehicularFormProps
           <div className="form-fields">
             <div className="form-group">
               <label>Nombres: <span className="required">*</span></label>
-              <input
-                type="text"
-                name="nombres"
-                placeholder="Ingrese el nombre"
-                value={formData.nombres}
-                onChange={handleInputChange}
-                className={errors.nombres ? 'input-error' : ''}
-              />
+              <div className="input-with-loader">
+                <input
+                  type="text"
+                  name="nombres"
+                  placeholder="Ingrese el nombre"
+                  value={formData.nombres}
+                  onChange={handleInputChange}
+                  className={errors.nombres ? 'input-error' : ''}
+                />
+                {ocrLoading && <span className="field-loading-circle" aria-label="Cargando nombres" title="Cargando nombres" />}
+              </div>
               {errors.nombres && <span className="error-message">{errors.nombres}</span>}
             </div>
 
             <div className="form-group">
               <label>Apellidos: <span className="required">*</span></label>
-              <input
-                type="text"
-                name="apellidos"
-                placeholder="Ingrese los apellidos"
-                value={formData.apellidos}
-                onChange={handleInputChange}
-                className={errors.apellidos ? 'input-error' : ''}
-              />
+              <div className="input-with-loader">
+                <input
+                  type="text"
+                  name="apellidos"
+                  placeholder="Ingrese los apellidos"
+                  value={formData.apellidos}
+                  onChange={handleInputChange}
+                  className={errors.apellidos ? 'input-error' : ''}
+                />
+                {ocrLoading && <span className="field-loading-circle" aria-label="Cargando apellidos" title="Cargando apellidos" />}
+              </div>
               {errors.apellidos && <span className="error-message">{errors.apellidos}</span>}
             </div>
 
             <div className="form-group">
               <label>Cédula: <span className="required">*</span></label>
-              <input
-                type="text"
-                name="cedula"
-                placeholder="Ej: 0912345678"
-                value={formData.cedula}
-                onChange={handleInputChange}
-                className={errors.cedula ? 'input-error' : ''}
-              />
+              <div className="input-with-loader">
+                <input
+                  type="text"
+                  name="cedula"
+                  placeholder="Ej: 0912345678"
+                  value={formData.cedula}
+                  onChange={handleInputChange}
+                  className={errors.cedula ? 'input-error' : ''}
+                />
+                {ocrLoading && <span className="field-loading-circle" aria-label="Cargando cédula" title="Cargando cédula" />}
+              </div>
               {errors.cedula && <span className="error-message">{errors.cedula}</span>}
             </div>
 

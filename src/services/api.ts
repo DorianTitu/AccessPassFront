@@ -14,6 +14,18 @@ export interface ExtraerPlacaResponse {
   confianza: number
 }
 
+export interface ExtraerCedulaVehicularResponse {
+  exito: boolean
+  nui: string
+  nombres: string
+  apellidos: string
+}
+
+function obtenerBase64Plano(imageData: string): string {
+  const partes = imageData.split(',')
+  return partes.length > 1 ? partes[1] : imageData
+}
+
 export interface GuardarRegistroVehicularPayload {
   apellidos: string
   cedula: string
@@ -26,7 +38,24 @@ export interface GuardarRegistroVehicularPayload {
   nombres: string
 }
 
+export interface GuardarRegistroPeatonalPayload {
+  persona: string
+  cedula: string
+  departamento: string
+  imagen_cedula_base64?: string
+  imagen_usuario_base64?: string
+  hora_ingreso?: string
+}
+
 export interface GuardarRegistroVehicularResponse {
+  success: boolean
+  numero_ticket?: number
+  mensaje?: string
+  ruta_ticket?: string
+  [key: string]: unknown
+}
+
+export interface GuardarRegistroPeatonalResponse {
   success: boolean
   numero_ticket?: number
   mensaje?: string
@@ -50,6 +79,25 @@ export interface ObtenerRegistrosVehicularesResponse {
   success: boolean
   total: number
   tickets: TicketVehicular[]
+  mensaje?: string
+}
+
+export interface TicketPeatonal {
+  numero_ticket: string
+  nombres: string
+  apellidos: string
+  cedula: string
+  hora_ingreso: string
+  hora_salida: string
+  departamento: string
+  motivo: string
+  fecha_registro: string
+}
+
+export interface ObtenerRegistrosPeatonalesResponse {
+  success: boolean
+  total: number
+  tickets: TicketPeatonal[]
   mensaje?: string
 }
 
@@ -280,6 +328,50 @@ export async function guardarRegistroVehicular(
 }
 
 /**
+ * Guarda un registro de ingreso peatonal en el backend.
+ */
+export async function guardarRegistroPeatonal(
+  payload: GuardarRegistroPeatonalPayload
+): Promise<GuardarRegistroPeatonalResponse> {
+  try {
+    const response = await fetch('/save/registro_peatonal', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    })
+
+    let data: GuardarRegistroPeatonalResponse = { success: false }
+
+    try {
+      data = await response.json()
+    } catch {
+      // Si el backend no retorna JSON valido, se conserva el valor por defecto.
+    }
+
+    if (!response.ok) {
+      return {
+        ...data,
+        success: false,
+        mensaje: data.mensaje || `Error del servidor: ${response.status}`
+      }
+    }
+
+    return {
+      ...data,
+      success: data.success === true
+    }
+  } catch (error) {
+    console.error('Error al guardar registro peatonal:', error)
+    return {
+      success: false,
+      mensaje: 'No se pudo conectar con el servidor de guardado peatonal'
+    }
+  }
+}
+
+/**
  * Obtiene el historico de registros vehiculares desde el backend.
  */
 export async function obtenerRegistrosVehiculares(): Promise<ObtenerRegistrosVehicularesResponse> {
@@ -316,6 +408,71 @@ export async function obtenerRegistrosVehiculares(): Promise<ObtenerRegistrosVeh
       total: 0,
       tickets: [],
       mensaje: 'No se pudo conectar con el servidor para consultar el historico'
+    }
+  }
+}
+
+/**
+ * Obtiene el historico de registros peatonales desde el backend.
+ */
+export async function obtenerRegistrosPeatonales(): Promise<ObtenerRegistrosPeatonalesResponse> {
+  try {
+    const response = await fetch('/get/registro_peatonal')
+
+    let data: Partial<ObtenerRegistrosPeatonalesResponse> = {}
+
+    try {
+      data = await response.json()
+    } catch {
+      // Si la respuesta no es JSON, devolvemos estructura vacia controlada.
+    }
+
+    if (!response.ok) {
+      return {
+        success: false,
+        total: 0,
+        tickets: [],
+        mensaje: data.mensaje || `Error del servidor: ${response.status}`
+      }
+    }
+
+    const rawTickets = Array.isArray(data.tickets)
+      ? ((data.tickets as unknown) as Array<Record<string, unknown>>)
+      : []
+
+    const tickets: TicketPeatonal[] = rawTickets.map((rawTicket) => {
+      const persona = String(rawTicket.persona || '').trim()
+      const personaPartes = persona.split(/\s+/).filter(Boolean)
+      const nombres = personaPartes.slice(0, 2).join(' ') || persona
+      const apellidos = personaPartes.slice(2).join(' ')
+      const salidaEstado = rawTicket.salida_estado
+
+      return {
+        numero_ticket: String(rawTicket.ticket || ''),
+        nombres,
+        apellidos,
+        cedula: String(rawTicket.cedula || ''),
+        hora_ingreso: String(rawTicket.ingreso || ''),
+        hora_salida: salidaEstado == null || String(salidaEstado).trim() === '' ? 'No ha salido' : String(salidaEstado),
+        departamento: String(rawTicket.departamento || ''),
+        motivo: '',
+        fecha_registro: String(rawTicket.fecha_registro || '')
+      }
+    })
+
+    return {
+      success: data.success === true,
+      total: typeof data.total === 'number' ? data.total : tickets.length,
+      tickets,
+      mensaje: data.mensaje
+    }
+  } catch (error) {
+    console.error('Error al obtener registros peatonales:', error)
+    return {
+      success: false,
+      total: 0,
+      tickets: [],
+      mensaje: 'No se pudo conectar con el servidor para consultar el historico peatonal'
     }
   }
 }
@@ -365,6 +522,50 @@ export async function actualizarHoraSalida(
 }
 
 /**
+ * Actualiza la hora de salida de un ticket peatonal.
+ */
+export async function actualizarHoraSalidaPeatonal(
+  payload: ActualizarHoraSalidaPayload
+): Promise<ActualizarHoraSalidaResponse> {
+  try {
+    const response = await fetch('/update/hora_salida_peatonal', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    })
+
+    let data: ActualizarHoraSalidaResponse = { success: false }
+
+    try {
+      data = await response.json()
+    } catch {
+      // Si no retorna JSON, se conserva valor por defecto.
+    }
+
+    if (!response.ok) {
+      return {
+        ...data,
+        success: false,
+        mensaje: data.mensaje || `Error del servidor: ${response.status}`
+      }
+    }
+
+    return {
+      ...data,
+      success: data.success === true
+    }
+  } catch (error) {
+    console.error('Error al actualizar hora de salida peatonal:', error)
+    return {
+      success: false,
+      mensaje: 'No se pudo conectar con el servidor para actualizar la salida peatonal'
+    }
+  }
+}
+
+/**
  * Obtiene las fotos asociadas a un ticket vehicular.
  */
 export async function obtenerFotosTicket(ticket: string | number): Promise<ObtenerFotosTicketResponse> {
@@ -407,6 +608,53 @@ export async function obtenerFotosTicket(ticket: string | number): Promise<Obten
       faltantes: [],
       fotos: {},
       mensaje: 'No se pudo conectar con el servidor para consultar las fotos del ticket'
+    }
+  }
+}
+
+/**
+ * Obtiene las fotos asociadas a un ticket peatonal.
+ */
+export async function obtenerFotosTicketPeatonal(ticket: string | number): Promise<ObtenerFotosTicketResponse> {
+  try {
+    const response = await fetch(`/get/fotos_ticket_peatonal/${encodeURIComponent(String(ticket))}`)
+
+    let data: Partial<ObtenerFotosTicketResponse> = {}
+
+    try {
+      data = await response.json()
+    } catch {
+      // Si no retorna JSON valido, devolvemos una respuesta controlada.
+    }
+
+    if (!response.ok) {
+      return {
+        success: false,
+        ticket: data.ticket,
+        ruta_ticket: data.ruta_ticket,
+        total_fotos: data.total_fotos,
+        faltantes: Array.isArray(data.faltantes) ? data.faltantes : [],
+        fotos: data.fotos,
+        mensaje: data.mensaje || `Error del servidor: ${response.status}`
+      }
+    }
+
+    return {
+      success: data.success === true,
+      ticket: data.ticket,
+      ruta_ticket: data.ruta_ticket,
+      total_fotos: data.total_fotos,
+      faltantes: Array.isArray(data.faltantes) ? data.faltantes : [],
+      fotos: data.fotos,
+      mensaje: data.mensaje
+    }
+  } catch (error) {
+    console.error('Error al obtener fotos del ticket peatonal:', error)
+    return {
+      success: false,
+      faltantes: [],
+      fotos: {},
+      mensaje: 'No se pudo conectar con el servidor para consultar las fotos del ticket peatonal'
     }
   }
 }
@@ -561,6 +809,48 @@ export async function capturarCedulaConductor(): Promise<{
 }
 
 /**
+ * Ejecuta la extraccion OCR de la cedula vehicular sobre la ultima captura disponible.
+ */
+export async function extraerCedulaVehicular(imageData: string): Promise<ExtraerCedulaVehicularResponse> {
+  try {
+    console.log('Iniciando extraccion OCR de cedula vehicular...')
+    const response = await fetch('/extract/camara_cedula_entrada_vehicular', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        imagen_cedula_base64: obtenerBase64Plano(imageData)
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error del servidor: ${response.status}`)
+    }
+
+    const data = await response.json()
+    console.log('Respuesta OCR cedula vehicular:', data)
+
+    const ocrData = data?.ocr_data && typeof data.ocr_data === 'object' ? data.ocr_data : null
+
+    return {
+      exito: data?.success === true,
+      nui: ocrData?.cedula || ocrData?.nui || '',
+      nombres: ocrData?.nombres || '',
+      apellidos: ocrData?.apellidos || ''
+    }
+  } catch (error) {
+    console.error('Error al extraer OCR de cedula vehicular:', error)
+    return {
+      exito: false,
+      nui: '',
+      nombres: '',
+      apellidos: ''
+    }
+  }
+}
+
+/**
  * Captura imagen de cámara para registro peatonal
  * @returns Array con [fotoID, fotoFace] en base64
  */
@@ -610,7 +900,7 @@ export async function capturarCedulaPeatonal(): Promise<{
 }> {
   try {
     console.log('Iniciando captura de cédula peatonal...')
-    const response = await fetch('/capture/camara_cedula_entrada_vehicular', {
+    const response = await fetch('/capture/camara_cedula_entrada_peatonal', {
       method: 'POST'
     })
 
@@ -619,7 +909,12 @@ export async function capturarCedulaPeatonal(): Promise<{
     }
 
     const data = await response.json()
-    console.log('Respuesta del endpoint cédula peatonal:', data)
+    console.log('Respuesta cédula peatonal:', {
+      success: data?.success,
+      camera: data?.camera,
+      size_bytes: data?.size_bytes,
+      has_image: !!data?.image_base64
+    })
 
     let imagen = ''
     let exito = false
@@ -667,7 +962,7 @@ export async function capturarRostroPeatonal(): Promise<{
 }> {
   try {
     console.log('Iniciando captura de rostro peatonal...')
-    const response = await fetch('/capture/camara_usuario_entrada_vehicular', {
+    const response = await fetch('/capture/camara_usuario_entrada_peatonal', {
       method: 'POST'
     })
 
@@ -676,7 +971,12 @@ export async function capturarRostroPeatonal(): Promise<{
     }
 
     const data = await response.json()
-    console.log('Respuesta del endpoint rostro peatonal:', data)
+    console.log('Respuesta rostro peatonal:', {
+      success: data?.success,
+      camera: data?.camera,
+      size_bytes: data?.size_bytes,
+      has_image: !!data?.image_base64
+    })
 
     let imagen = ''
     let exito = false

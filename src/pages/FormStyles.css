@@ -197,6 +197,12 @@
   flex-direction: column;
 }
 
+.input-with-loader {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 .form-group label {
   font-weight: 600;
   color: #333;
@@ -221,6 +227,22 @@
   background: white;
   color: #333;
   width: 100%;
+}
+
+.input-with-loader input {
+  padding-right: 42px;
+}
+
+.field-loading-circle {
+  position: absolute;
+  right: 12px;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #cfd6de;
+  border-top-color: var(--primary-blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  pointer-events: none;
 }
 
 .form-group input:focus,

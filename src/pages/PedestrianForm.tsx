@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react'
-import { capturarCedulaPeatonal, capturarRostroPeatonal } from '../services/api'
+import {
+  capturarCedulaPeatonal,
+  capturarRostroPeatonal,
+  guardarRegistroPeatonal
+} from '../services/api'
 import { obtenerDepartamentos, obtenerMotivos } from '../services/configuracion'
 import DepartamentosModal from '../components/DepartamentosModal'
 import './FormStyles.css'
@@ -28,6 +32,7 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [guardando, setGuardando] = useState(false)
 
   // Actualizar hora en tiempo real
   useEffect(() => {
@@ -103,54 +108,125 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
     }
   }
 
+  const getBase64Only = (value: string | null): string => {
+    if (!value) return ''
+    const parts = value.split(',')
+    return parts.length > 1 ? parts[1] : value
+  }
+
   const confirmSave = async () => {
-    // Aquí iría la lógica de guardado
-    setShowConfirm(false)
-    alert('Registro guardado exitosamente')
-    if (onSuccess) {
-      await onSuccess()
+    if (guardando) return
+
+    const departamentoSeleccionado = departamentos.find(
+      (dept) => dept.id === parseInt(formData.departamento)
+    )
+
+    if (!departamentoSeleccionado) {
+      alert('Departamento no válido')
+      return
     }
-    onClose()
+
+    setGuardando(true)
+    try {
+      const response = await guardarRegistroPeatonal({
+        persona: `${formData.nombres.trim()} ${formData.apellidos.trim()}`.trim(),
+        cedula: formData.cedula.trim(),
+        departamento: departamentoSeleccionado.nombre,
+        imagen_cedula_base64: getBase64Only(photoID),
+        imagen_usuario_base64: getBase64Only(photoFace),
+        hora_ingreso: horaIngreso
+      })
+
+      if (!response.success) {
+        alert(response.mensaje || 'No se pudo guardar el registro peatonal')
+        return
+      }
+
+      setShowConfirm(false)
+      alert(response.mensaje || 'Registro peatonal guardado exitosamente')
+      if (onSuccess) {
+        await onSuccess()
+      }
+      onClose()
+    } catch (error) {
+      console.error('Error al guardar registro peatonal:', error)
+      alert('Ocurrió un error al guardar el registro peatonal')
+    } finally {
+      setGuardando(false)
+    }
   }
 
   const handleCapturar = async () => {
+    const captureStart = performance.now()
     setLoading(true)
+    // Reinicia datos de captura para evitar arrastrar información anterior.
+    setPhotoID(null)
+    setPhotoFace(null)
+    setFormData(prev => ({
+      ...prev,
+      cedula: '',
+      nombres: '',
+      apellidos: ''
+    }))
+    setErrors(prev => ({
+      ...prev,
+      cedula: '',
+      nombres: '',
+      apellidos: ''
+    }))
     try {
-      // Capturar cédula y rostro en paralelo
-      const [cedulaResult, rostroResult] = await Promise.all([
-        capturarCedulaPeatonal(),
-        capturarRostroPeatonal()
-      ])
-
       let errorCount = 0
 
-      // Procesar captura de cédula
-      if (cedulaResult.exito && cedulaResult.fotoID) {
-        const imageData = typeof cedulaResult.fotoID === 'string' && cedulaResult.fotoID.startsWith('data:') 
-          ? cedulaResult.fotoID 
-          : `data:image/jpeg;base64,${cedulaResult.fotoID}`
-        setPhotoID(imageData)
-        
-        // Llenar datos OCR en los campos del formulario
-        setFormData(prev => ({
-          ...prev,
-          cedula: cedulaResult.nui || prev.cedula,
-          nombres: cedulaResult.nombres || prev.nombres,
-          apellidos: cedulaResult.apellidos || prev.apellidos
-        }))
-      } else {
-        errorCount++
-      }
+      const cedulaStart = performance.now()
+      const cedulaTask = capturarCedulaPeatonal()
+        .then((cedulaResult) => {
+          console.log('Frontend tiempo cédula peatonal (ms):', Math.round(performance.now() - cedulaStart))
 
-      // Procesar captura de rostro
-      if (rostroResult.exito && rostroResult.fotoFace) {
-        const imageData = typeof rostroResult.fotoFace === 'string' && rostroResult.fotoFace.startsWith('data:') 
-          ? rostroResult.fotoFace 
-          : `data:image/jpeg;base64,${rostroResult.fotoFace}`
-        setPhotoFace(imageData)
-      } else {
-        errorCount++
-      }
+          if (cedulaResult.exito && cedulaResult.fotoID) {
+            const imageData = typeof cedulaResult.fotoID === 'string' && cedulaResult.fotoID.startsWith('data:')
+              ? cedulaResult.fotoID
+              : `data:image/jpeg;base64,${cedulaResult.fotoID}`
+            setPhotoID(imageData)
+
+            // Llenar datos OCR en los campos del formulario
+            setFormData(prev => ({
+              ...prev,
+              cedula: cedulaResult.nui || prev.cedula,
+              nombres: cedulaResult.nombres || prev.nombres,
+              apellidos: cedulaResult.apellidos || prev.apellidos
+            }))
+          } else {
+            errorCount++
+          }
+        })
+        .catch((error) => {
+          console.error('Error en captura de cédula peatonal:', error)
+          errorCount++
+        })
+
+      const rostroStart = performance.now()
+      const rostroTask = capturarRostroPeatonal()
+        .then((rostroResult) => {
+          console.log('Frontend tiempo rostro peatonal (ms):', Math.round(performance.now() - rostroStart))
+
+          if (rostroResult.exito && rostroResult.fotoFace) {
+            const imageData = typeof rostroResult.fotoFace === 'string' && rostroResult.fotoFace.startsWith('data:')
+              ? rostroResult.fotoFace
+              : `data:image/jpeg;base64,${rostroResult.fotoFace}`
+            setPhotoFace(imageData)
+          } else {
+            errorCount++
+          }
+        })
+        .catch((error) => {
+          console.error('Error en captura de rostro peatonal:', error)
+          errorCount++
+        })
+
+      // Espera final para cerrar el estado de carga, pero cada imagen se renderiza apenas llega.
+      await Promise.all([cedulaTask, rostroTask])
+
+      console.log('Frontend tiempo total captura peatonal (ms):', Math.round(performance.now() - captureStart))
 
       if (errorCount > 0) {
         alert(`Error: Solo se capturaron ${2 - errorCount} de 2 imágenes`)
@@ -329,8 +405,12 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
             <h2>Confirmar Registro</h2>
             <p>¿Deseas guardar este registro peatonal?</p>
             <div className="confirm-buttons">
-              <button className="btn-confirm" onClick={confirmSave}>Confirmar</button>
-              <button className="btn-cancel-confirm" onClick={() => setShowConfirm(false)}>Cancelar</button>
+              <button className="btn-confirm" onClick={confirmSave} disabled={guardando}>
+                {guardando ? 'Guardando...' : 'Confirmar'}
+              </button>
+              <button className="btn-cancel-confirm" onClick={() => setShowConfirm(false)} disabled={guardando}>
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
