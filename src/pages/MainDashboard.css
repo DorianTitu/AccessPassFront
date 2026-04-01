@@ -25,7 +25,7 @@
 /* Header Logo - DMT */
 .header-logo-dmt {
   position: absolute;
-  left: 250px;
+  left: 220px;
   top: 52%;
   transform: translateY(-50%) scale(2.5);
   background: transparent;
@@ -72,7 +72,7 @@
 .tab-button.active:nth-child(2) {
   background: #8B5A3C;
   border-color: #8B5A3C;
-  box-shadow: 0 4px 12px rgba(139, 90, 60, 0.3);
+  box-shadow: 0 4px 12px rgba(221, 200, 11, 0.3);
 }
 
 .tab-icon {
@@ -124,7 +124,7 @@
 }
 
 .btn-new-entry {
-  background: #C89C6D;
+  background: #d6b746;
   color: #ffffff;
   border: none;
   padding: 12px 24px;
