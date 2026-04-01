@@ -712,7 +712,7 @@ export async function capturarRostroConductor(): Promise<{
 }> {
   try {
     console.log('Iniciando captura de rostro del conductor...')
-    const response = await fetch('/capture/camara_usuario_entrada_vehicular', {
+    const response = await fetch('/capture/camara_usuario_entrada_vehicular?include_data_url=false&include_image=true&response_mode=json', {
       method: 'POST'
     })
 
