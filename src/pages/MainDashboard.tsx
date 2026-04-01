@@ -3,6 +3,8 @@ import './MainDashboard.css'
 import Dashboard from './Dashboard'
 import PedestrianForm from './PedestrianForm'
 import VehicularForm from './VehicularForm'
+import CasaSanJoseLogo from '../assets/images/CasaSanJose.png'
+import LogoDMTLogo from '../assets/images/LogoDMT.png'
 import {
   actualizarHoraSalidaPeatonal,
   TicketPeatonal,
@@ -88,6 +90,7 @@ export default function MainDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [nowMs, setNowMs] = useState(Date.now())
+  const [currentTime, setCurrentTime] = useState(new Date())
   const [updatingTicket, setUpdatingTicket] = useState<string | null>(null)
   const [loadingPhotosTicket, setLoadingPhotosTicket] = useState<string | null>(null)
   const [showPhotosModal, setShowPhotosModal] = useState(false)
@@ -99,6 +102,10 @@ export default function MainDashboard() {
   const [ticketPhotos, setTicketPhotos] = useState<Record<string, { archivo: string; size_bytes: number; image_base64: string }>>({})
   const [missingPhotos, setMissingPhotos] = useState<string[]>([])
   const [photosError, setPhotosError] = useState('')
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('theme-mode')
+    return saved ? saved === 'dark' : false
+  })
 
   const cargarHistorico = async () => {
     setLoading(true)
@@ -136,6 +143,12 @@ export default function MainDashboard() {
     cargarHistorico()
   }, [])
 
+  useEffect(() => {
+    const theme = isDarkMode ? 'dark' : 'light'
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('theme-mode', theme)
+  }, [isDarkMode])
+
   const handleRegistroExitoso = async () => {
     await cargarHistorico()
   }
@@ -143,6 +156,7 @@ export default function MainDashboard() {
   useEffect(() => {
     const intervalId = window.setInterval(() => {
       setNowMs(Date.now())
+      setCurrentTime(new Date())
     }, 1000)
 
     return () => window.clearInterval(intervalId)
@@ -374,11 +388,27 @@ export default function MainDashboard() {
     <div className="main-dashboard">
       {/* Header */}
       <header className="dashboard-header">
+        <div className="header-logo-casasanjose">
+          <img src={CasaSanJoseLogo} alt="Casa San José" className="logo-image" />
+        </div>
         <div className="header-content">
           <h1>CONTROL DE ACCESO</h1>
           <p className="header-date">{new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          <p className="header-time">{currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</p>
         </div>
-        <button className="btn-new-entry" onClick={() => handleNavigate('dashboard')}>+ Nuevo Registro</button>
+        <div className="header-logo-dmt">
+          <img src={LogoDMTLogo} alt="DMT" className="logo-image" />
+        </div>
+        <div className="header-actions">
+          <button 
+            className="btn-theme-toggle" 
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            title={isDarkMode ? 'Modo claro' : 'Modo oscuro'}
+          >
+            <span className="theme-icon">{isDarkMode ? '●' : '◯'}</span>
+          </button>
+          <button className="btn-new-entry" onClick={() => handleNavigate('dashboard')}>+ Nuevo Registro</button>
+        </div>
       </header>
 
       {/* Stats */}

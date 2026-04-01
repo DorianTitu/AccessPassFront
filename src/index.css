@@ -1,13 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
 :root {
-  --primary-blue: #0073E6;
-  --primary-red: #8B1F2D;
-  --primary-yellow: #FFB81C;
+  /* Light mode colors */
+  --primary-red: #C52A19;
+  --primary-beige: #C89C6D;
+  --primary-dark-red: #8B5A3C;
+  --primary-blue: #C52A19;
+  --secondary-color: #C89C6D;
   --white: #ffffff;
   --light-gray: #f5f5f5;
   --medium-gray: #e0e0e0;
   --dark-text: #2c3e50;
-  --success-color: #0073E6;
-  --error-color: #8B1F2D;
+  --success-color: #C52A19;
+  --error-color: #8B5A3C;
+  
+  /* Dark mode colors */
+  --bg-dark: #1a1a1a;
+  --bg-dark-secondary: #2d2d2d;
+  --text-dark: #e8e8e8;
+  --border-dark: #404040;
+}
+
+[data-theme='dark'] {
+  --white: #3d3a36;
+  --light-gray: #2a2420;
+  --medium-gray: #5c5650;
+  --dark-text: #f5f2ed;
+  --bg-dark: #2a2420;
+  --bg-dark-secondary: #3d3a36;
+  --text-dark: #f5f2ed;
+  --border-dark: #5c5650;
 }
 
 * {
@@ -24,12 +46,14 @@ body,
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: var(--light-gray);
+  color: var(--dark-text);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .app {
@@ -59,4 +83,17 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #888;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-track {
+  background: #2a2420;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-thumb {
+  background: #FF8A73;
+  border-radius: 4px;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+  background: #FFB89E;
 }

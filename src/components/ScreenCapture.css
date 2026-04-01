@@ -25,19 +25,19 @@
 }
 
 .pedestrian-analyze {
-  background: var(--primary-blue);
+  background: #C52A19;
 }
 
 .pedestrian-analyze:hover:not(:disabled) {
-  background: #0056b3;
+  background: #A02314;
 }
 
 .vehicular-analyze {
-  background: var(--primary-red);
+  background: #8B5A3C;
 }
 
 .vehicular-analyze:hover:not(:disabled) {
-  background: #6b1620;
+  background: #6B4630;
 }
 
 .btn-analyze:disabled {
@@ -87,7 +87,7 @@
 
 .preview-header {
   padding: 20px 25px;
-  background: var(--primary-blue);
+  background: #C52A19;
   color: white;
   display: flex;
   justify-content: space-between;
@@ -164,12 +164,12 @@
 }
 
 .btn-preview-capture {
-  background: var(--primary-blue);
+  background: #C52A19;
   color: white;
 }
 
 .btn-preview-capture:hover {
-  background: #0056b3;
+  background: #A02314;
 }
 
 .btn-preview-cancel {

@@ -49,7 +49,7 @@
 
 .modal-config-header {
   padding: 30px;
-  background: linear-gradient(135deg, var(--primary-red) 0%, #8b1420 100%);
+  background: linear-gradient(135deg, #C52A19 0%, #8B5A3C 100%);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -106,13 +106,13 @@
 }
 
 .departamento-item:hover {
-  border-color: #c41e3a;
-  box-shadow: 0 4px 12px rgba(196, 30, 58, 0.1);
+  border-color: #C52A19;
+  box-shadow: 0 4px 12px rgba(197, 42, 25, 0.1);
 }
 
 .nuevo-dept-form {
-  background: linear-gradient(135deg, #e3f2fd 0%, #f3f7fd 100%);
-  border: 2px dashed #0073e6;
+  background: linear-gradient(135deg, #FFF5F0 0%, #FCF7F4 100%);
+  border: 2px dashed #C52A19;
 }
 
 .departamento-view {
@@ -160,13 +160,13 @@
 }
 
 .btn-editar {
-  background: var(--primary-red);
+  background: #C52A19;
   color: white;
 }
 
 .btn-editar:hover {
-  background: #8b1420;
-  box-shadow: 0 4px 8px rgba(196, 30, 58, 0.2);
+  background: #8B5A3C;
+  box-shadow: 0 4px 8px rgba(197, 42, 25, 0.2);
 }
 
 .btn-eliminar {

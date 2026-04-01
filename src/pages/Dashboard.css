@@ -15,7 +15,7 @@
 
 .dashboard-title {
   font-size: 2rem;
-  color: var(--primary-blue);
+  color: #C52A19;
   margin-bottom: 15px;
   font-weight: 600;
   letter-spacing: 0.5px;
@@ -47,7 +47,7 @@
 }
 
 .option-card:hover {
-  border-color: var(--primary-blue);
+  border-color: #C52A19;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   transform: translateY(-2px);
 }
@@ -66,11 +66,11 @@
 }
 
 .pedestrian-icon {
-  background: var(--primary-blue);
+  background: #C52A19;
 }
 
 .vehicular-icon {
-  background: var(--primary-red);
+  background: #8B5A3C;
 }
 
 .option-card h2 {
