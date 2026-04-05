@@ -517,8 +517,25 @@
   background: #A02314;
 }
 
+.btn-edit {
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: #4a90e2;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-edit:hover {
+  background: #3a7bc8;
+}
+
 .btn-photos:disabled,
-.btn-exit:disabled {
+.btn-exit:disabled,
+.btn-edit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -1142,6 +1159,16 @@
   background: #A01E11;
 }
 
+[data-theme='dark'] .btn-edit {
+  background: #4a90e2;
+  color: white;
+  border: none;
+}
+
+[data-theme='dark'] .btn-edit:hover {
+  background: #3a7bc8;
+}
+
 [data-theme='dark'] .btn-exit {
   background: #4a7c4e;
   color: white;
@@ -1270,4 +1297,406 @@
   background: rgba(255, 138, 115, 0.15);
   border-color: rgba(255, 138, 115, 0.3);
   color: #FFB89E;
+}
+
+/* Modal Unificado - Fotos y Edición */
+.photos-modal-large {
+  max-width: 900px !important;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  padding: 0 !important;
+  border-radius: 12px !important;
+}
+
+.photos-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 25px 30px;
+  background: linear-gradient(135deg, #C52A19 0%, #8B5A3C 100%);
+  color: white;
+  border-radius: 12px 12px 0 0;
+  flex-shrink: 0;
+}
+
+.photos-form-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.photos-ticket-code {
+  margin: 8px 0 0 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.photos-form-content {
+  display: grid;
+  grid-template-columns: 550px 1fr;
+  gap: 30px;
+  padding: 30px;
+  overflow-y: auto;
+  flex: 1;
+  align-items: start;
+}
+
+.photos-form-panel {
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.info-form-panel {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  max-height: calc(90vh - 120px);
+}
+
+.info-section {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid #e0e0e0;
+}
+
+.info-section h3 {
+  margin: 0 0 15px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-item label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.info-item p {
+  margin: 0;
+  padding: 8px 12px;
+  background: white;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.edit-section {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid #e0e0e0;
+}
+
+.edit-section h3 {
+  margin: 0 0 15px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.photos-grid-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.photos-grid-form.vehicular-photos-form .photo-box-form:first-child {
+  grid-column: 1 / -1;
+  height: 400px;
+}
+
+.photos-grid-form.vehicular-photos-form .photo-box-form:nth-child(2),
+.photos-grid-form.vehicular-photos-form .photo-box-form:nth-child(3) {
+  height: 200px;
+}
+
+.photos-grid-form.pedestrian-photos-form {
+  grid-template-columns: 1fr;
+}
+
+.photos-grid-form.pedestrian-photos-form .photo-box-form:first-child {
+  height: 340px;
+}
+
+.photos-grid-form.pedestrian-photos-form .photo-box-form:nth-child(2) {
+  height: 260px;
+}
+
+.photo-box-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  padding: 10px;
+  background: white;
+}
+
+.photo-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.photo-image-wrap {
+  flex: 1;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.photo-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  cursor: zoom-in;
+}
+
+.edit-form-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-group-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group-inline label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.required {
+  color: #C52A19;
+  font-weight: 700;
+}
+
+.form-group-inline input,
+.form-group-inline textarea {
+  padding: 10px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  background: white;
+  color: #333;
+}
+
+.form-group-inline select {
+  padding: 10px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  background: white;
+  color: #333;
+  cursor: pointer;
+}
+
+.form-group-inline input:focus,
+.form-group-inline textarea:focus,
+.form-group-inline select:focus {
+  outline: none;
+  border-color: #C52A19;
+  box-shadow: 0 0 0 3px rgba(197, 42, 25, 0.1);
+}
+
+.form-group-inline input:disabled,
+.form-group-inline textarea:disabled,
+.form-group-inline select:disabled {
+  background-color: #f5f5f5;
+  color: #999;
+  cursor: not-allowed;
+}
+
+.btn-save-changes {
+  background: #8B5A3C;
+  color: white;
+  border: none;
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-save-changes:hover:not(:disabled) {
+  background: #6B4630;
+}
+
+.btn-save-changes:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-toggle-edit {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-toggle-edit:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.btn-toggle-edit.active {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* Dark mode support */
+[data-theme='dark'] .info-section,
+[data-theme='dark'] .edit-section {
+  background: #2a2420;
+  border-color: #5c5650;
+}
+
+[data-theme='dark'] .info-section h3,
+[data-theme='dark'] .edit-section h3 {
+  color: #e0e0e0;
+}
+
+[data-theme='dark'] .info-item label {
+  color: #b0b0b0;
+}
+
+[data-theme='dark'] .info-item p {
+  background: #1a1a1a;
+  border-color: #5c5650;
+  color: #e0e0e0;
+}
+
+[data-theme='dark'] .form-group-inline input,
+[data-theme='dark'] .form-group-inline textarea,
+[data-theme='dark'] .form-group-inline select {
+  background-color: #1a1a1a;
+  color: #e0e0e0;
+  border-color: #5c5650;
+}
+
+[data-theme='dark'] .form-group-inline input:focus,
+[data-theme='dark'] .form-group-inline textarea:focus,
+[data-theme='dark'] .form-group-inline select:focus {
+  border-color: #C52A19;
+}
+
+[data-theme='dark'] .form-group-inline input:disabled,
+[data-theme='dark'] .form-group-inline textarea:disabled,
+[data-theme='dark'] .form-group-inline select:disabled {
+  background-color: #1a1a1a;
+  color: #666;
+  cursor: not-allowed;
+}
+
+[data-theme='dark'] .form-group-inline label {
+  color: #b0b0b0;
+}
+
+[data-theme='dark'] .required {
+  color: #FF6B6B;
+}
+
+[data-theme='dark'] .photo-box-form {
+  background: #2a2420;
+  border-color: #5c5650;
+}
+
+[data-theme='dark'] .photo-label {
+  color: #b0b0b0;
+}
+
+[data-theme='dark'] .photo-image-wrap {
+  background: #1a1a1a;
+  border-color: #5c5650;
+}
+
+[data-theme='dark'] .btn-save-changes {
+  background: #C52A19;
+}
+
+[data-theme='dark'] .btn-save-changes:hover:not(:disabled) {
+  background: #A02314;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .photos-form-content {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .photos-form-panel {
+    grid-column: 1;
+  }
+
+  .info-form-panel {
+    grid-column: 1;
+    max-height: none;
+  }
+
+  .photos-grid-form {
+    grid-template-columns: 1fr;
+  }
+
+  .photos-grid-form.vehicular-photos-form .photo-box-form:first-child {
+    height: 300px;
+  }
+
+  .photos-grid-form.vehicular-photos-form .photo-box-form:nth-child(2),
+  .photos-grid-form.vehicular-photos-form .photo-box-form:nth-child(3) {
+    height: 150px;
+  }
+
+  .photos-grid-form.pedestrian-photos-form .photo-box-form:first-child {
+    height: 250px;
+  }
+
+  .photos-grid-form.pedestrian-photos-form .photo-box-form:nth-child(2) {
+    height: 200px;
+  }
 }

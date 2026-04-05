@@ -129,9 +129,11 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
     setGuardando(true)
     try {
       const response = await guardarRegistroPeatonal({
-        persona: `${formData.nombres.trim()} ${formData.apellidos.trim()}`.trim(),
+        nombre: formData.nombres.trim(),
+        apellido: formData.apellidos.trim(),
         cedula: formData.cedula.trim(),
         departamento: departamentoSeleccionado.nombre,
+        motivo: formData.motivo.trim(),
         imagen_cedula_base64: getBase64Only(photoID),
         imagen_usuario_base64: getBase64Only(photoFace),
         hora_ingreso: horaIngreso
@@ -255,13 +257,6 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
         </div>
 
         <div className="form-content">
-          {loading && (
-            <div className="extraction-message">
-              <span className="spinner">⟳</span>
-              Capturando y extrayendo datos de la cedula. Puedes llenar departamento y motivo mientras termina.
-            </div>
-          )}
-
           {/* Sección de Fotos */}
           <div className="photos-section">
             <div className="photo-box">

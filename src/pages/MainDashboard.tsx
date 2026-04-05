@@ -10,11 +10,12 @@ import {
   TicketPeatonal,
   TicketVehicular,
   actualizarHoraSalida,
-  obtenerFotosTicket,
-  obtenerFotosTicketPeatonal,
   obtenerRegistrosPeatonales,
-  obtenerRegistrosVehiculares
+  obtenerRegistrosVehiculares,
+  obtenerTicketInfoVehicular,
+  obtenerTicketInfoPeatonal
 } from '../services/api'
+import { obtenerDepartamentos, obtenerMotivos, obtenerIdDepartamento } from '../services/configuracion'
 
 type Page = 'main' | 'dashboard' | 'pedestrian' | 'vehicular'
 
@@ -102,6 +103,19 @@ export default function MainDashboard() {
   const [ticketPhotos, setTicketPhotos] = useState<Record<string, { archivo: string; size_bytes: number; image_base64: string }>>({})
   const [missingPhotos, setMissingPhotos] = useState<string[]>([])
   const [photosError, setPhotosError] = useState('')
+  const [editMode, setEditMode] = useState(true)
+  const [departamentos, setDepartamentos] = useState(obtenerDepartamentos())
+  const [motivosFiltrados, setMotivosFiltrados] = useState<string[]>([])
+  const [editingData, setEditingData] = useState({
+    nombres: '',
+    apellidos: '',
+    cedula: '',
+    departamento: '',
+    motivo: ''
+  })
+  const [savingChanges, setSavingChanges] = useState(false)
+  const [editingTicket, setEditingTicket] = useState<TicketVehicular | TicketPeatonal | null>(null)
+  const [editingTicketType, setEditingTicketType] = useState<'vehicular' | 'pedestrian' | null>(null)
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('theme-mode')
     return saved ? saved === 'dark' : false
@@ -228,18 +242,6 @@ export default function MainDashboard() {
     setUpdatingTicket(null)
   }
 
-  const handleClosePhotosModal = () => {
-    setShowPhotosModal(false)
-    setShowImagePreview(false)
-    setPreviewImageSrc('')
-    setPreviewImageAlt('')
-    setSelectedTicketCode('')
-    setSelectedTicketInfo(null)
-    setTicketPhotos({})
-    setMissingPhotos([])
-    setPhotosError('')
-  }
-
   const handleOpenImagePreview = (src: string, alt: string) => {
     setPreviewImageSrc(src)
     setPreviewImageAlt(alt)
@@ -257,27 +259,55 @@ export default function MainDashboard() {
 
     setLoadingPhotosTicket(ticket.numero_ticket)
     setPhotosError('')
-    setSelectedTicketInfo({
-      tipo: 'vehicular',
-      ticket: ticket.numero_ticket || '-',
-      nombre: `${ticket.nombres || ''} ${ticket.apellidos || ''}`.trim() || 'Sin nombre',
-      cedula: ticket.cedula || '-',
-      departamento: ticket.departamento || '-',
-      horaIngreso: ticket.hora_ingreso || '-',
-      horaSalida: ticket.hora_salida || 'No ha salido'
-    })
+    setEditMode(true)
 
-    const response = await obtenerFotosTicket(ticket.numero_ticket)
+    const response = await obtenerTicketInfoVehicular(ticket.numero_ticket)
 
     if (!response.success) {
-      setPhotosError(response.mensaje || 'No se pudieron cargar las fotos del ticket')
+      setPhotosError(response.mensaje || 'No se pudieron cargar los datos del ticket')
       setLoadingPhotosTicket(null)
       return
     }
 
+    const info = response.informacion
+    if (info) {
+      // Parsear nombres y apellidos de info.persona si existen
+      const personaCompleta = info.persona || `${info.nombres || ''} ${info.apellidos || ''}`.trim()
+      const personaPartes = personaCompleta.split(/\s+/).filter(Boolean)
+      const primerosNombres = personaPartes.slice(0, 2).join(' ') || info.nombres || ''
+      const apellidos = personaPartes.slice(2).join(' ') || info.apellidos || ''
+      
+      // Obtener el ID del departamento basado en su nombre
+      const deptId = obtenerIdDepartamento(info.departamento || '')
+      const motivos = deptId > 0 ? obtenerMotivos(deptId) : []
+      setMotivosFiltrados(motivos)
+      
+      setEditingData({
+        nombres: primerosNombres,
+        apellidos: apellidos,
+        cedula: info.cedula || '',
+        departamento: String(deptId),
+        motivo: ''
+      })
+    }
+    
+    setEditingTicket(ticket)
+    setEditingTicketType('vehicular')
+    
+    const personaCompleta = info?.persona || `${info?.nombres || ''} ${info?.apellidos || ''}`.trim()
+    setSelectedTicketInfo({
+      tipo: 'vehicular',
+      ticket: response.ticket || ticket.numero_ticket || '-',
+      nombre: personaCompleta || 'Sin nombre',
+      cedula: info?.cedula || '-',
+      departamento: info?.departamento || '-',
+      horaIngreso: info?.ingreso || '-',
+      horaSalida: info?.salida_estado || 'No ha salido'
+    })
+
     setSelectedTicketCode(response.ticket || ticket.numero_ticket)
-    setTicketPhotos(response.fotos || {})
-    setMissingPhotos(Array.isArray(response.faltantes) ? response.faltantes : [])
+    setTicketPhotos((response.fotos as Record<string, { archivo: string; size_bytes: number; image_base64: string }>) || {})
+    setMissingPhotos([])
     setShowPhotosModal(true)
     setLoadingPhotosTicket(null)
   }
@@ -287,29 +317,184 @@ export default function MainDashboard() {
 
     setLoadingPhotosTicket(ticket.numero_ticket)
     setPhotosError('')
-    setSelectedTicketInfo({
-      tipo: 'pedestrian',
-      ticket: ticket.numero_ticket || '-',
-      nombre: `${ticket.nombres || ''} ${ticket.apellidos || ''}`.trim() || 'Sin nombre',
-      cedula: ticket.cedula || '-',
-      departamento: ticket.departamento || '-',
-      horaIngreso: ticket.hora_ingreso || '-',
-      horaSalida: ticket.hora_salida || 'No ha salido'
-    })
+    setEditMode(true)
 
-    const response = await obtenerFotosTicketPeatonal(ticket.numero_ticket)
+    const response = await obtenerTicketInfoPeatonal(ticket.numero_ticket)
 
     if (!response.success) {
-      setPhotosError(response.mensaje || 'No se pudieron cargar las fotos del ticket peatonal')
+      setPhotosError(response.mensaje || 'No se pudieron cargar los datos del ticket peatonal')
       setLoadingPhotosTicket(null)
       return
     }
 
+    const info = response.informacion
+    if (info) {
+      // Los datos peatonales vienen en informacion, con campos nombre/apellido/hora_ingreso/hora_salida
+      const infoData = info as unknown as Record<string, unknown>
+      const nombre = (infoData.nombre as string) || ''
+      const apellido = (infoData.apellido as string) || ''
+      const cedula = (infoData.cedula as string) || ''
+      const departamento = (infoData.departamento as string) || ''
+      const motivo = (infoData.motivo as string) || ''
+      const hora_ingreso = (infoData.hora_ingreso as string) || ''
+      const hora_salida = (infoData.hora_salida as string) || ''
+      
+      // Obtener el ID del departamento basado en su nombre
+      const deptId = obtenerIdDepartamento(departamento)
+      
+      // Cargar motivos filtrados para el departamento
+      const motivos = deptId > 0 ? obtenerMotivos(deptId) : []
+      setMotivosFiltrados(motivos)
+      
+      setEditingData({
+        nombres: nombre,
+        apellidos: apellido,
+        cedula: cedula,
+        departamento: String(deptId),
+        motivo: motivo
+      })
+      
+      setEditingTicket(ticket)
+      setEditingTicketType('pedestrian')
+      
+      const personaCompleta = `${nombre} ${apellido}`.trim()
+      setSelectedTicketInfo({
+        tipo: 'pedestrian',
+        ticket: response.ticket || ticket.numero_ticket || '-',
+        nombre: personaCompleta || 'Sin nombre',
+        cedula: cedula || '-',
+        departamento: departamento || '-',
+        horaIngreso: hora_ingreso || '-',
+        horaSalida: hora_salida || 'No ha salido'
+      })
+    }
+
     setSelectedTicketCode(response.ticket || ticket.numero_ticket)
-    setTicketPhotos(response.fotos || {})
-    setMissingPhotos(Array.isArray(response.faltantes) ? response.faltantes : [])
+    setTicketPhotos((response.fotos as Record<string, { archivo: string; size_bytes: number; image_base64: string }>) || {})
+    setMissingPhotos([])
     setShowPhotosModal(true)
     setLoadingPhotosTicket(null)
+  }
+
+  const handleToggleEditMode = () => {
+    setEditMode(!editMode)
+  }
+
+  const handleEditFieldChange = (field: keyof typeof editingData, value: string) => {
+    // Si cambio el departamento, actualizar motivos filtrados
+    if (field === 'departamento') {
+      const deptId = parseInt(value)
+      const motivos = deptId > 0 ? obtenerMotivos(deptId) : []
+      setMotivosFiltrados(motivos)
+      // Limpiar motivo cuando cambia departamento
+      setEditingData((prev) => ({
+        ...prev,
+        [field]: value,
+        motivo: ''
+      }))
+    } else {
+      setEditingData((prev) => ({
+        ...prev,
+        [field]: value
+      }))
+    }
+  }
+
+  const handleGuardarCambios = async () => {
+    if (!editingTicket || !editingTicketType) return
+
+    setSavingChanges(true)
+
+    try {
+      if (editingTicketType === 'vehicular') {
+        const { editarRegistroVehicular } = await import('../services/api')
+        const response = await editarRegistroVehicular({
+          ticket: editingTicket.numero_ticket,
+          nombres: editingData.nombres,
+          apellidos: editingData.apellidos,
+          cedula: editingData.cedula,
+          departamento: editingData.departamento,
+          motivo: editingData.motivo
+        })
+
+        if (!response.success) {
+          setPhotosError(response.mensaje || 'Error al guardar cambios')
+          setSavingChanges(false)
+          return
+        }
+      } else {
+        const { editarRegistroPeatonal } = await import('../services/api')
+        const response = await editarRegistroPeatonal({
+          ticket: editingTicket.numero_ticket,
+          nombre: editingData.nombres,
+          apellido: editingData.apellidos,
+          cedula: editingData.cedula,
+          departamento: editingData.departamento,
+          motivo: editingData.motivo
+        })
+
+        if (!response.success) {
+          setPhotosError(response.mensaje || 'Error al guardar cambios')
+          setSavingChanges(false)
+          return
+        }
+      }
+
+      // Actualizar estado del ticket en memoria
+      if (editingTicketType === 'vehicular') {
+        setVehicularTickets((prev) =>
+          prev.map((t) =>
+            t.numero_ticket === editingTicket.numero_ticket
+              ? {
+                  ...t,
+                  nombres: editingData.nombres,
+                  apellidos: editingData.apellidos,
+                  cedula: editingData.cedula,
+                  departamento: editingData.departamento,
+                  motivo: editingData.motivo
+                }
+              : t
+          )
+        )
+      } else {
+        setPedestrianTickets((prev) =>
+          prev.map((t) =>
+            t.numero_ticket === editingTicket.numero_ticket
+              ? {
+                  ...t,
+                  nombres: editingData.nombres,
+                  apellidos: editingData.apellidos,
+                  cedula: editingData.cedula,
+                  departamento: editingData.departamento,
+                  motivo: editingData.motivo
+                }
+              : t
+          )
+        )
+      }
+
+      setEditMode(false)
+      setSavingChanges(false)
+    } catch (error) {
+      console.error('Error al guardar cambios:', error)
+      setPhotosError('Error al conectar con el servidor')
+      setSavingChanges(false)
+    }
+  }
+
+  const handleClosePhotosModal = () => {
+    setShowPhotosModal(false)
+    setShowImagePreview(false)
+    setPreviewImageSrc('')
+    setPreviewImageAlt('')
+    setSelectedTicketCode('')
+    setSelectedTicketInfo(null)
+    setTicketPhotos({})
+    setMissingPhotos([])
+    setPhotosError('')
+    setEditMode(false)
+    setEditingTicket(null)
+    setEditingTicketType(null)
   }
 
   useEffect(() => {
@@ -551,7 +736,7 @@ export default function MainDashboard() {
                           }
                           disabled={loadingPhotosTicket === entry.numero_ticket}
                         >
-                          {loadingPhotosTicket === entry.numero_ticket ? 'Cargando...' : 'Revisar fotos'}
+                          {loadingPhotosTicket === entry.numero_ticket ? 'Cargando...' : 'Ver'}
                         </button>
 
                         {abierta ? (
@@ -587,78 +772,163 @@ export default function MainDashboard() {
 
       {showPhotosModal && (
         <div className="photos-modal-overlay" onClick={handleClosePhotosModal}>
-          <div className="photos-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="photos-modal-header">
+          <div className="photos-modal photos-modal-large" onClick={(event) => event.stopPropagation()}>
+            {/* Header similar al formulario */}
+            <div className="photos-form-header">
               <div>
-                <h3>Fotos del ticket</h3>
-                <p>{selectedTicketCode}</p>
+                <h1>Detalles del Registro</h1>
+                <p className="photos-ticket-code">{selectedTicketCode}</p>
               </div>
-              <button type="button" className="photos-close-btn" onClick={handleClosePhotosModal} aria-label="Cerrar modal de fotos">
-                x
+              <button type="button" className="photos-close-btn" onClick={handleClosePhotosModal} aria-label="Cerrar">
+                ✕
               </button>
             </div>
 
-            {selectedTicketInfo && (
-              <div className="ticket-info-panel">
-                <div className="ticket-info-row">
-                  <span className={`ticket-type-chip ${selectedTicketInfo.tipo}`}>
-                    {selectedTicketInfo.tipo === 'vehicular' ? 'Vehicular' : 'Peatonal'}
-                  </span>
-                  <span className="ticket-code-chip">{selectedTicketInfo.ticket}</span>
-                </div>
-                <div className="ticket-info-grid">
-                  <div><strong>Persona:</strong> {selectedTicketInfo.nombre}</div>
-                  <div><strong>Cédula:</strong> {selectedTicketInfo.cedula}</div>
-                  <div><strong>Departamento:</strong> {selectedTicketInfo.departamento}</div>
-                  <div><strong>Ingreso:</strong> {selectedTicketInfo.horaIngreso}</div>
-                  <div><strong>Salida:</strong> {selectedTicketInfo.horaSalida}</div>
-                </div>
-              </div>
-            )}
-
-            {photosError ? (
-              <div className="photos-message error">{photosError}</div>
-            ) : (
-              <>
-                <div className="photos-grid">
-                  {Object.entries(ticketPhotos).map(([tipo, foto]) => (
-                    <article className="photo-card" key={tipo}>
-                      <div className="photo-card-top">
-                        <span className="photo-type">{obtenerEtiquetaFoto(tipo)}</span>
-                      </div>
-                      <div className="photo-image-wrap">
-                        <img
-                          src={construirSrcImagen(foto.image_base64)}
-                          alt={`Foto ${obtenerEtiquetaFoto(tipo)} del ticket ${selectedTicketCode}`}
-                          className="photo-image"
-                          onClick={() =>
-                            handleOpenImagePreview(
-                              construirSrcImagen(foto.image_base64),
-                              `Foto ${obtenerEtiquetaFoto(tipo)} del ticket ${selectedTicketCode}`
-                            )
-                          }
-                        />
-                      </div>
-                    </article>
-                  ))}
-                </div>
-
-                {Object.keys(ticketPhotos).length === 0 && (
-                  <div className="photos-message">No hay imagenes disponibles para este ticket.</div>
-                )}
-
-                {missingPhotos.length > 0 && (
-                  <div className="missing-photos-wrap">
-                    <span>Faltantes:</span>
-                    <div className="missing-photos-list">
-                      {missingPhotos.map((item) => (
-                        <span className="missing-photo-chip" key={item}>{obtenerEtiquetaFoto(item)}</span>
-                      ))}
+            {/* Content con layout similar al formulario */}
+            <div className="photos-form-content">
+              {/* Panel de Fotos (izquierda) */}
+              <div className="photos-form-panel">
+                {selectedTicketInfo && (
+                  <div className="ticket-info-panel">
+                    <div className="ticket-info-row">
+                      <span className={`ticket-type-chip ${selectedTicketInfo.tipo}`}>
+                        {selectedTicketInfo.tipo === 'vehicular' ? 'Vehicular' : 'Peatonal'}
+                      </span>
                     </div>
                   </div>
                 )}
-              </>
-            )}
+
+                {photosError ? (
+                  <div className="photos-message error">{photosError}</div>
+                ) : (
+                  <>
+                    <div className={`photos-grid-form ${editingTicketType === 'vehicular' ? 'vehicular-photos-form' : 'pedestrian-photos-form'}`}>
+                      {Object.entries(ticketPhotos).map(([tipo, foto], index) => (
+                        <div
+                          className={`photo-box-form ${editingTicketType === 'vehicular' && index === 0 ? 'full-width' : ''}`}
+                          key={tipo}
+                        >
+                          <div className="photo-label">{obtenerEtiquetaFoto(tipo)}</div>
+                          <div className="photo-image-wrap">
+                            <img
+                              src={construirSrcImagen(foto.image_base64)}
+                              alt={`Foto ${obtenerEtiquetaFoto(tipo)} del ticket ${selectedTicketCode}`}
+                              className="photo-image"
+                              onClick={() =>
+                                handleOpenImagePreview(
+                                  construirSrcImagen(foto.image_base64),
+                                  `Foto ${obtenerEtiquetaFoto(tipo)} del ticket ${selectedTicketCode}`
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {Object.keys(ticketPhotos).length === 0 && (
+                      <div className="photos-message">No hay imagenes disponibles para este ticket.</div>
+                    )}
+
+                    {missingPhotos.length > 0 && (
+                      <div className="missing-photos-wrap">
+                        <span>Faltantes:</span>
+                        <div className="missing-photos-list">
+                          {missingPhotos.map((item) => (
+                            <span className="missing-photo-chip" key={item}>{obtenerEtiquetaFoto(item)}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Panel de Edición (derecha) */}
+              <div className="info-form-panel">
+                <div className="edit-section">
+                  <h3>Información</h3>
+                  <form className="edit-form-inline">
+                    <div className="form-group-inline">
+                      <label>Nombres <span className="required">*</span></label>
+                      <input
+                        type="text"
+                        value={editingData.nombres}
+                        onChange={(e) => handleEditFieldChange('nombres', e.target.value)}
+                        disabled={savingChanges}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group-inline">
+                      <label>Apellidos <span className="required">*</span></label>
+                      <input
+                        type="text"
+                        value={editingData.apellidos}
+                        onChange={(e) => handleEditFieldChange('apellidos', e.target.value)}
+                        disabled={savingChanges}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group-inline">
+                      <label>Cédula <span className="required">*</span></label>
+                      <input
+                        type="text"
+                        value={editingData.cedula}
+                        onChange={(e) => handleEditFieldChange('cedula', e.target.value)}
+                        disabled={savingChanges}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group-inline">
+                      <label>Departamento <span className="required">*</span></label>
+                      <select
+                        value={editingData.departamento}
+                        onChange={(e) => handleEditFieldChange('departamento', e.target.value)}
+                        disabled={savingChanges}
+                        required
+                      >
+                        <option value="">Seleccionar departamento...</option>
+                        {departamentos.map((dept) => (
+                          <option key={dept.id} value={dept.id}>
+                            {dept.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {editingTicketType === 'vehicular' && (
+                      <div className="form-group-inline">
+                        <label>Motivo</label>
+                        <select
+                          value={editingData.motivo}
+                          onChange={(e) => handleEditFieldChange('motivo', e.target.value)}
+                          disabled={savingChanges}
+                        >
+                          <option value="">Seleccionar motivo...</option>
+                          {motivosFiltrados.map((motivo, idx) => (
+                            <option key={idx} value={motivo}>
+                              {motivo}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      className="btn-save-changes"
+                      onClick={handleGuardarCambios}
+                      disabled={savingChanges}
+                    >
+                      {savingChanges ? 'Guardando...' : 'Guardar Cambios'}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

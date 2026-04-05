@@ -308,13 +308,6 @@ export default function VehicularForm({ onClose, onSuccess }: VehicularFormProps
         </div>
 
         <div className="form-content">
-          {loading && (
-            <div className="extraction-message">
-              <span className="spinner">⟳</span>
-              Capturando y extrayendo datos de la cedula. Puedes llenar departamento y motivo mientras termina.
-            </div>
-          )}
-
           {/* Sección de Fotos */}
           <div className="photos-section vehicular-photos">
             <div className="photo-box">

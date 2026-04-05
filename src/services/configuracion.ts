@@ -53,6 +53,16 @@ export function obtenerMotivos(departamentoId: number): string[] {
 }
 
 /**
+ * Obtiene el ID del departamento por su nombre
+ */
+export function obtenerIdDepartamento(nombreDepartamento: string): number {
+  const departamento = obtenerConfiguracion().departamentos.find(d => 
+    d.nombre.toLowerCase() === nombreDepartamento.toLowerCase()
+  )
+  return departamento?.id || 0
+}
+
+/**
  * Actualiza la configuración (simulado - en producción iría a un backend)
  */
 export function actualizarConfiguracion(nuevaConfiguracion: Configuracion): void {
