@@ -16,7 +16,6 @@ interface EditRegistroModalProps {
   cedula: string
   departamento: string
   motivo?: string
-  observaciones?: string
   onClose: () => void
   onSuccess: () => void
 }
@@ -30,7 +29,6 @@ export default function EditRegistroModal({
   cedula: initialCedula,
   departamento: initialDepartamento,
   motivo: initialMotivo = '',
-  observaciones: initialObservaciones = '',
   onClose,
   onSuccess
 }: EditRegistroModalProps) {
@@ -39,7 +37,6 @@ export default function EditRegistroModal({
   const [cedula, setCedula] = useState(initialCedula)
   const [departamento, setDepartamento] = useState(initialDepartamento)
   const [motivo, setMotivo] = useState(initialMotivo)
-  const [observaciones, setObservaciones] = useState(initialObservaciones)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -58,8 +55,7 @@ export default function EditRegistroModal({
           apellidos,
           cedula,
           departamento,
-          motivo,
-          observaciones
+          motivo
         }
         const response = await editarRegistroVehicular(payload)
 
@@ -69,14 +65,13 @@ export default function EditRegistroModal({
           return
         }
       } else {
-        // Para peatonal, 'persona' es el nombre completo
-        const persona = `${nombres} ${apellidos}`.trim()
         const payload: EditarRegistroPeatonalPayload = {
           ticket,
-          persona,
+          nombre: nombres,
+          apellido: apellidos,
           cedula,
           departamento,
-          observaciones
+          motivo
         }
         const response = await editarRegistroPeatonal(payload)
 
@@ -177,16 +172,7 @@ export default function EditRegistroModal({
             </div>
           )}
 
-          <div className="form-group">
-            <label htmlFor="observaciones">Observaciones</label>
-            <textarea
-              id="observaciones"
-              value={observaciones}
-              onChange={(e) => setObservaciones(e.target.value)}
-              disabled={loading}
-              rows={4}
-            />
-          </div>
+
 
           <div className="form-actions">
             <button type="button" className="btn-cancel" onClick={onClose} disabled={loading}>

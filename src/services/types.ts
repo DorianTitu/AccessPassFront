@@ -116,7 +116,7 @@ export interface EditarRegistroVehicularPayload {
   nombres?: string
   apellidos?: string
   cedula?: string
-  departamento?: string | number
+  departamento?: string
   motivo?: string
 }
 
@@ -125,7 +125,7 @@ export interface EditarRegistroPeatonalPayload {
   nombre?: string
   apellido?: string
   cedula?: string
-  departamento?: string | number
+  departamento?: string
   motivo?: string
 }
 

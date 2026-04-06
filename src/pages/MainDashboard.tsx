@@ -162,7 +162,15 @@ export default function MainDashboard() {
     departamento: '',
     motivo: ''
   })
+  const [originalEditingData, setOriginalEditingData] = useState({
+    nombres: '',
+    apellidos: '',
+    cedula: '',
+    departamento: '',
+    motivo: ''
+  })
   const [savingChanges, setSavingChanges] = useState(false)
+  const [showSaveConfirmation, setShowSaveConfirmation] = useState(false)
   const [editingTicket, setEditingTicket] = useState<TicketVehicular | TicketPeatonal | null>(null)
   const [editingTicketType, setEditingTicketType] = useState<'vehicular' | 'pedestrian' | null>(null)
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -309,6 +317,17 @@ export default function MainDashboard() {
     setShowImagePreview(true)
   }
 
+  // Detectar si hay cambios en el formulario comparando con los datos originales
+  const hasChanges = useMemo(() => {
+    return (
+      editingData.nombres !== originalEditingData.nombres ||
+      editingData.apellidos !== originalEditingData.apellidos ||
+      editingData.cedula !== originalEditingData.cedula ||
+      editingData.departamento !== originalEditingData.departamento ||
+      editingData.motivo !== originalEditingData.motivo
+    )
+  }, [editingData, originalEditingData])
+
   const handleCloseImagePreview = () => {
     setShowImagePreview(false)
     setPreviewImageSrc('')
@@ -355,13 +374,15 @@ export default function MainDashboard() {
         motivoNormalizado = motivoEncontrado || String(info.motivo)
       }
       
-      setEditingData({
+      const ticketData = {
         nombres: primerosNombres,
         apellidos: apellidos,
         cedula: (info.cedula as string) || '',
-        departamento: String(deptId),
+        departamento: (info.departamento as string) || '',
         motivo: motivoNormalizado
-      })
+      }
+      setEditingData(ticketData)
+      setOriginalEditingData(ticketData)
     }
     
     setEditingTicket(ticket)
@@ -433,13 +454,15 @@ export default function MainDashboard() {
         motivoNormalizado = motivoEncontrado || motivo
       }
       
-      setEditingData({
+      const ticketData = {
         nombres: nombre,
         apellidos: apellido,
         cedula: cedula,
-        departamento: String(deptId),
+        departamento: departamento || '',
         motivo: motivoNormalizado
-      })
+      }
+      setEditingData(ticketData)
+      setOriginalEditingData(ticketData)
       
       setEditingTicket(ticket)
       setEditingTicketType('pedestrian')
@@ -500,7 +523,7 @@ export default function MainDashboard() {
           nombres: editingData.nombres,
           apellidos: editingData.apellidos,
           cedula: editingData.cedula,
-          departamento: parseInt(editingData.departamento) || undefined,
+          departamento: editingData.departamento,
           motivo: editingData.motivo
         })
 
@@ -516,7 +539,7 @@ export default function MainDashboard() {
           nombre: editingData.nombres,
           apellido: editingData.apellidos,
           cedula: editingData.cedula,
-          departamento: parseInt(editingData.departamento) || undefined,
+          departamento: editingData.departamento,
           motivo: editingData.motivo
         })
 
@@ -560,8 +583,19 @@ export default function MainDashboard() {
         )
       }
 
-      setEditMode(false)
+      // Actualizar los datos originales (para que hasChanges sea false)
+      setOriginalEditingData(editingData)
+      
+      // Mostrar confirmación
+      setShowSaveConfirmation(true)
       setSavingChanges(false)
+      
+      // Ocultar confirmación después de 1 segundo
+      setTimeout(() => {
+        setShowSaveConfirmation(false)
+      }, 1000)
+      
+      setEditMode(false)
     } catch (error) {
       console.error('Error al guardar cambios:', error)
       setPhotosError('Error al conectar con el servidor')
@@ -1071,13 +1105,18 @@ export default function MainDashboard() {
                       <label>Departamento <span className="required">*</span></label>
                       <select
                         value={editingData.departamento}
-                        onChange={(e) => handleEditFieldChange('departamento', e.target.value)}
+                        onChange={(e) => {
+                          handleEditFieldChange('departamento', e.target.value)
+                          const deptId = obtenerIdDepartamento(e.target.value)
+                          const motivos = deptId > 0 ? obtenerMotivos(deptId) : []
+                          setMotivosFiltrados(motivos)
+                        }}
                         disabled={savingChanges}
                         required
                       >
                         <option value="">Seleccionar departamento...</option>
                         {departamentos.map((dept) => (
-                          <option key={dept.id} value={dept.id}>
+                          <option key={dept.id} value={dept.nombre}>
                             {dept.nombre}
                           </option>
                         ))}
@@ -1105,10 +1144,16 @@ export default function MainDashboard() {
                       type="button"
                       className="btn-save-changes"
                       onClick={handleGuardarCambios}
-                      disabled={savingChanges}
+                      disabled={savingChanges || !hasChanges}
                     >
                       {savingChanges ? 'Guardando...' : 'Guardar Cambios'}
                     </button>
+
+                    {showSaveConfirmation && (
+                      <div className="save-confirmation-indicator">
+                        ✓ Cambios guardados
+                      </div>
+                    )}
                   </form>
                 </div>
               </div>

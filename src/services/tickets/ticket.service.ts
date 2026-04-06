@@ -4,7 +4,7 @@
  */
 
 import { httpGet, httpPut } from '../httpClient'
-import { ENDPOINTS, API_BASE_URL } from '../constants'
+import { ENDPOINTS } from '../constants'
 import type {
   ObtenerTicketInfoResponse,
   ObtenerFotosResponse,
@@ -79,7 +79,7 @@ export async function obtenerTicketInfoPeatonal(
 export async function editarRegistroVehicular(
   payload: EditarRegistroVehicularPayload
 ): Promise<EditarRegistroResponse> {
-  const url = `${API_BASE_URL}${ENDPOINTS.EDITAR_REGISTRO_VEHICULAR}`
+  const url = `http://localhost:8000${ENDPOINTS.EDITAR_REGISTRO_VEHICULAR}`
   const response = await httpPut<EditarRegistroResponse>(
     url,
     payload as unknown as Record<string, unknown>
@@ -101,7 +101,7 @@ export async function editarRegistroVehicular(
 export async function editarRegistroPeatonal(
   payload: EditarRegistroPeatonalPayload
 ): Promise<EditarRegistroResponse> {
-  const url = `${API_BASE_URL}${ENDPOINTS.EDITAR_REGISTRO_PEATONAL}`
+  const url = `http://localhost:8000${ENDPOINTS.EDITAR_REGISTRO_PEATONAL}`
   const response = await httpPut<EditarRegistroResponse>(
     url,
     payload as unknown as Record<string, unknown>
