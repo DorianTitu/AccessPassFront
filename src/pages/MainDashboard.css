@@ -253,8 +253,9 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   padding: 18px 20px;
-  background: linear-gradient(135deg, #f8f9fa 0%, #f0f1f2 100%);
+  background: white;
   flex: 1;
+  border-right: 1px solid #e0e0e0;
 }
 
 .stat-card {
@@ -1096,9 +1097,6 @@
 .link-button:hover {
   color: #A02314;
   text-decoration-thickness: 2px;
-}
-  color: #999;
-  font-size: 14px;
 }
 
 .photos-modal-overlay {

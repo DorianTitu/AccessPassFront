@@ -4,7 +4,7 @@
  */
 
 import { httpGet, httpPut } from '../httpClient'
-import { ENDPOINTS } from '../constants'
+import { ENDPOINTS, API_BASE_URL } from '../constants'
 import type {
   ObtenerTicketInfoResponse,
   ObtenerFotosResponse,
@@ -13,8 +13,27 @@ import type {
   EditarRegistroPeatonalPayload,
   ObtenerRegistrosResponse,
   TicketVehicular,
-  TicketPeatonal
+  TicketPeatonal,
+  TicketPeatonalRaw
 } from '../types'
+
+/**
+ * Normaliza datos peatonales del API a formato esperado por la app
+ * Mapea: ticket->numero_ticket, nombre->nombres, apellido->apellidos, ingreso->hora_ingreso, salida_estado->hora_salida
+ */
+function normalizarTicketPeatonal(rawTicket: TicketPeatonalRaw): TicketPeatonal {
+  return {
+    numero_ticket: rawTicket.ticket,
+    nombres: rawTicket.nombre || '',
+    apellidos: rawTicket.apellido || '',
+    cedula: rawTicket.cedula,
+    hora_ingreso: rawTicket.ingreso,
+    hora_salida: rawTicket.salida_estado,
+    departamento: rawTicket.departamento,
+    motivo: rawTicket.motivo,
+    fecha_registro: rawTicket.fecha_registro
+  }
+}
 
 /**
  * Obtiene información completa de un ticket vehicular (info + fotos)
@@ -60,9 +79,10 @@ export async function obtenerTicketInfoPeatonal(
 export async function editarRegistroVehicular(
   payload: EditarRegistroVehicularPayload
 ): Promise<EditarRegistroResponse> {
+  const url = `${API_BASE_URL}${ENDPOINTS.EDITAR_REGISTRO_VEHICULAR}`
   const response = await httpPut<EditarRegistroResponse>(
-    ENDPOINTS.EDITAR_REGISTRO_VEHICULAR,
-    payload as Record<string, unknown>
+    url,
+    payload as unknown as Record<string, unknown>
   )
 
   if (!response.ok) {
@@ -81,9 +101,10 @@ export async function editarRegistroVehicular(
 export async function editarRegistroPeatonal(
   payload: EditarRegistroPeatonalPayload
 ): Promise<EditarRegistroResponse> {
+  const url = `${API_BASE_URL}${ENDPOINTS.EDITAR_REGISTRO_PEATONAL}`
   const response = await httpPut<EditarRegistroResponse>(
-    ENDPOINTS.EDITAR_REGISTRO_PEATONAL,
-    payload as Record<string, unknown>
+    url,
+    payload as unknown as Record<string, unknown>
   )
 
   if (!response.ok) {
@@ -155,7 +176,7 @@ export async function obtenerRegistrosVehiculares(): Promise<ObtenerRegistrosRes
     }
   }
 
-  const data = response.data || {}
+  const data = (response.data || {}) as ObtenerRegistrosResponse<TicketVehicular>
   return {
     success: data.success === true,
     total: data.total || 0,
@@ -168,7 +189,7 @@ export async function obtenerRegistrosVehiculares(): Promise<ObtenerRegistrosRes
  * Obtiene registros peatonales
  */
 export async function obtenerRegistrosPeatonales(): Promise<ObtenerRegistrosResponse<TicketPeatonal>> {
-  const response = await httpGet<ObtenerRegistrosResponse<TicketPeatonal>>(
+  const response = await httpGet<ObtenerRegistrosResponse<TicketPeatonalRaw>>(
     ENDPOINTS.OBTENER_REGISTROS_PEATONALES
   )
 
@@ -181,11 +202,14 @@ export async function obtenerRegistrosPeatonales(): Promise<ObtenerRegistrosResp
     }
   }
 
-  const data = response.data || {}
+  const data = (response.data || {}) as ObtenerRegistrosResponse<TicketPeatonalRaw>
+  // Normalizar todos los tickets peatonales para que coincidan con el formato esperado
+  const normalizedTickets = (data.tickets || []).map(normalizarTicketPeatonal)
+  
   return {
     success: data.success === true,
     total: data.total || 0,
-    tickets: data.tickets || [],
+    tickets: normalizedTickets,
     mensaje: data.mensaje
   }
 }

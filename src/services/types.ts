@@ -37,6 +37,20 @@ export interface TicketVehicular {
   fecha_registro: string
 }
 
+// Estructura REAL que devuelve el API peatonal
+export interface TicketPeatonalRaw {
+  ticket: string // NOT numero_ticket
+  nombre: string // singular, NOT nombres
+  apellido: string // singular, NOT apellidos
+  cedula: string
+  ingreso: string // NOT hora_ingreso
+  salida_estado: string // NOT hora_salida
+  departamento: string
+  motivo: string
+  fecha_registro: string
+}
+
+// Estructura normalizada esperada por la app
 export interface TicketPeatonal {
   numero_ticket: string
   nombres: string
@@ -102,7 +116,7 @@ export interface EditarRegistroVehicularPayload {
   nombres?: string
   apellidos?: string
   cedula?: string
-  departamento?: string
+  departamento?: string | number
   motivo?: string
 }
 
@@ -111,7 +125,7 @@ export interface EditarRegistroPeatonalPayload {
   nombre?: string
   apellido?: string
   cedula?: string
-  departamento?: string
+  departamento?: string | number
   motivo?: string
 }
 

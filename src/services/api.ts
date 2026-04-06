@@ -18,6 +18,7 @@ export type {
   ExtraerCedulaVehicularResponse,
   TicketVehicular,
   TicketPeatonal,
+  TicketPeatonalRaw,
   InformacionTicket,
   FotoTicket,
   GuardarRegistroVehicularPayload,

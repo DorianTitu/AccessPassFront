@@ -24,6 +24,26 @@
       "id": 5,
       "nombre": "Recursos Humanos",
       "motivos": ["Entrevista", "Capacitación", "Orientación", "Trámites administrativos"]
+    },
+    {
+      "id": 6,
+      "nombre": "Parroquia",
+      "motivos": ["Misa", "Confesión", "Bautizo", "Matrimonio", "Funeral"]
+    },
+    {
+      "id": 7,
+      "nombre": "Bar",
+      "motivos": ["Consumo", "Evento", "Reunión privada", "Catering"]
+    },
+    {
+      "id": 8,
+      "nombre": "Escuela",
+      "motivos": ["Clase", "Reunión con profesor", "Actividad extraescolar", "Entrega de documentos"]
+    },
+    {
+      "id": 9,
+      "nombre": "Imprenta",
+      "motivos": ["Impresión de documentos", "Encuadernación", "Diseño", "Retira trabajos"]
     }
   ]
 }

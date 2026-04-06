@@ -75,8 +75,22 @@ function sinSalida(ticket: TicketPeatonal | TicketVehicular): boolean {
 }
 
 function obtenerFechaIngreso(ticket: TicketPeatonal | TicketVehicular): Date | null {
-  const normalized = (ticket.fecha_registro || '').replace(' ', 'T')
-  if (!normalized) return null
+  let dateString = (ticket.fecha_registro || '').trim()
+  if (!dateString) return null
+
+  // Sanitizar fechas malformadas: si los segundos son > 59, corregirlos a 59
+  // Patrón: YYYY-MM-DD HH:MM:SS
+  const timeMatch = dateString.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):(\d{2})/)
+  if (timeMatch) {
+    const [, year, month, day, hour, minute, seconds] = timeMatch
+    const secondsNum = parseInt(seconds, 10)
+    if (secondsNum > 59) {
+      // Corregir a 59 segundos
+      dateString = `${year}-${month}-${day} ${hour}:${minute}:59`
+    }
+  }
+
+  const normalized = dateString.replace(' ', 'T')
   const parsed = new Date(normalized)
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
@@ -210,12 +224,6 @@ export default function MainDashboard() {
     localStorage.setItem('theme-mode', theme)
   }, [isDarkMode])
 
-  useEffect(() => {
-    console.log('📅 Fecha cambió a:', selectedDate)
-    // Recargar histórico cuando cambia la fecha
-    cargarHistorico()
-  }, [selectedDate])
-
   const handleRegistroExitoso = async () => {
     await cargarHistorico()
   }
@@ -322,40 +330,57 @@ export default function MainDashboard() {
       return
     }
 
-    const info = response.informacion
+    const info = response.informacion as unknown as Record<string, unknown>
     if (info) {
+      // Los datos pueden venir con nombres singulares o plurales, normalizar
+      const nombres = (info.nombres as string) || (info.nombre as string) || ''
+      const apellidosStr = (info.apellidos as string) || (info.apellido as string) || ''
+      
       // Parsear nombres y apellidos de info.persona si existen
-      const personaCompleta = info.persona || `${info.nombres || ''} ${info.apellidos || ''}`.trim()
+      const personaCompleta = (info.persona as string) || `${nombres} ${apellidosStr}`.trim()
       const personaPartes = personaCompleta.split(/\s+/).filter(Boolean)
-      const primerosNombres = personaPartes.slice(0, 2).join(' ') || info.nombres || ''
-      const apellidos = personaPartes.slice(2).join(' ') || info.apellidos || ''
+      const primerosNombres = personaPartes.slice(0, 2).join(' ') || nombres || ''
+      const apellidos = personaPartes.slice(2).join(' ') || apellidosStr || ''
       
       // Obtener el ID del departamento basado en su nombre
-      const deptId = obtenerIdDepartamento(info.departamento || '')
+      const deptId = obtenerIdDepartamento((info.departamento as string) || '')
       const motivos = deptId > 0 ? obtenerMotivos(deptId) : []
       setMotivosFiltrados(motivos)
+      
+      // Normalizar el motivo si existe, buscando coincidencia case-insensitive
+      let motivoNormalizado = ''
+      if (info.motivo) {
+        const motivoAPI = String(info.motivo).toLowerCase()
+        const motivoEncontrado = motivos.find(m => m.toLowerCase() === motivoAPI)
+        motivoNormalizado = motivoEncontrado || String(info.motivo)
+      }
       
       setEditingData({
         nombres: primerosNombres,
         apellidos: apellidos,
-        cedula: info.cedula || '',
+        cedula: (info.cedula as string) || '',
         departamento: String(deptId),
-        motivo: ''
+        motivo: motivoNormalizado
       })
     }
     
     setEditingTicket(ticket)
     setEditingTicketType('vehicular')
     
-    const personaCompleta = info?.persona || `${info?.nombres || ''} ${info?.apellidos || ''}`.trim()
+    const nombres = (info?.nombres as string) || (info?.nombre as string) || ''
+    const apellidosStr = (info?.apellidos as string) || (info?.apellido as string) || ''
+    const personaCompleta = (info?.persona as string) || `${nombres} ${apellidosStr}`.trim()
+    const horaIngreso = (info?.hora_ingreso as string) || (info?.ingreso as string) || '-'
+    const horaSalida = (info?.hora_salida as string) || (info?.salida_estado as string) || 'No ha salido'
+    
     setSelectedTicketInfo({
       tipo: 'vehicular',
       ticket: response.ticket || ticket.numero_ticket || '-',
       nombre: personaCompleta || 'Sin nombre',
-      cedula: info?.cedula || '-',
-      departamento: info?.departamento || '-',
-      horaIngreso: info?.ingreso || '-',
-      horaSalida: info?.salida_estado || 'No ha salido'
+      cedula: (info?.cedula as string) || '-',
+      departamento: (info?.departamento as string) || '-',
+      horaIngreso: horaIngreso,
+      horaSalida: horaSalida
     })
 
     setSelectedTicketCode(response.ticket || ticket.numero_ticket)
@@ -382,15 +407,16 @@ export default function MainDashboard() {
 
     const info = response.informacion
     if (info) {
-      // Los datos peatonales vienen en informacion, con campos nombre/apellido/hora_ingreso/hora_salida
+      // Los datos peatonales vienen en informacion, con campos nombre/apellido
+      // Pueden tener hora_ingreso/hora_salida O ingreso/salida_estado
       const infoData = info as unknown as Record<string, unknown>
-      const nombre = (infoData.nombre as string) || ''
-      const apellido = (infoData.apellido as string) || ''
+      const nombre = (infoData.nombre as string) || (infoData.nombres as string) || ''
+      const apellido = (infoData.apellido as string) || (infoData.apellidos as string) || ''
       const cedula = (infoData.cedula as string) || ''
       const departamento = (infoData.departamento as string) || ''
       const motivo = (infoData.motivo as string) || ''
-      const hora_ingreso = (infoData.hora_ingreso as string) || ''
-      const hora_salida = (infoData.hora_salida as string) || ''
+      const hora_ingreso = (infoData.hora_ingreso as string) || (infoData.ingreso as string) || ''
+      const hora_salida = (infoData.hora_salida as string) || (infoData.salida_estado as string) || ''
       
       // Obtener el ID del departamento basado en su nombre
       const deptId = obtenerIdDepartamento(departamento)
@@ -399,12 +425,20 @@ export default function MainDashboard() {
       const motivos = deptId > 0 ? obtenerMotivos(deptId) : []
       setMotivosFiltrados(motivos)
       
+      // Normalizar el motivo si existe, buscando coincidencia case-insensitive
+      let motivoNormalizado = motivo
+      if (motivo) {
+        const motivoAPI = motivo.toLowerCase()
+        const motivoEncontrado = motivos.find(m => m.toLowerCase() === motivoAPI)
+        motivoNormalizado = motivoEncontrado || motivo
+      }
+      
       setEditingData({
         nombres: nombre,
         apellidos: apellido,
         cedula: cedula,
         departamento: String(deptId),
-        motivo: motivo
+        motivo: motivoNormalizado
       })
       
       setEditingTicket(ticket)
@@ -466,7 +500,7 @@ export default function MainDashboard() {
           nombres: editingData.nombres,
           apellidos: editingData.apellidos,
           cedula: editingData.cedula,
-          departamento: editingData.departamento,
+          departamento: parseInt(editingData.departamento) || undefined,
           motivo: editingData.motivo
         })
 
@@ -482,7 +516,7 @@ export default function MainDashboard() {
           nombre: editingData.nombres,
           apellido: editingData.apellidos,
           cedula: editingData.cedula,
-          departamento: editingData.departamento,
+          departamento: parseInt(editingData.departamento) || undefined,
           motivo: editingData.motivo
         })
 
@@ -576,18 +610,23 @@ export default function MainDashboard() {
   const filteredEntries = useMemo(() => {
     let sourceTickets: Array<TicketPeatonal | TicketVehicular>
 
-    if (dashboardView === 'vehicular') {
+    // Si está en modo "Ver todo", combina ambos tipos; si no, solo muestra el tipo seleccionado
+    if (showAllTickets) {
+      sourceTickets = [...vehicularTickets, ...pedestrianTickets]
+    } else if (dashboardView === 'vehicular') {
       sourceTickets = vehicularTickets
     } else {
       sourceTickets = pedestrianTickets
     }
 
-    console.log(`📊 Filtrando ${dashboardView}:`, {
+    console.log(`📊 Filtrando ${showAllTickets ? 'TODOS' : dashboardView}:`, {
       total: sourceTickets.length,
       selectedDate,
       searchTerm,
       filterType,
-      showAllTickets
+      showAllTickets,
+      vehicularTickets: vehicularTickets.length,
+      pedestrianTickets: pedestrianTickets.length
     })
 
     const filtered = sourceTickets.filter((ticket) => {
@@ -622,10 +661,15 @@ export default function MainDashboard() {
       const matchesType =
         filterType === 'all' || (filterType === 'open' && abierta) || (filterType === 'closed' && !abierta)
 
-      return matchesSearch && matchesType
+      const passes = matchesSearch && matchesType
+      if (!passes) {
+        console.debug(`🚫 Ticket ${ticket.numero_ticket} filtrado: matchesSearch=${matchesSearch}, matchesType=${matchesType}, abierta=${abierta}`)
+      }
+
+      return passes
     })
 
-    console.log(`✨ Resultados filtrados: ${filtered.length}`)
+    console.log(`✨ Resultados filtrados: ${filtered.length} de ${sourceTickets.length}`)
     return filtered.reverse()
   }, [pedestrianTickets, vehicularTickets, searchTerm, filterType, dashboardView, selectedDate, showAllTickets])
 
@@ -815,17 +859,22 @@ export default function MainDashboard() {
                 </tr>
               )}
 
-              {!loading && !error && filteredEntries.map((entry) => {
+              {!loading && !error && filteredEntries.map((entry, index) => {
                 const abierta = sinSalida(entry)
                 const fechaIngreso = obtenerFechaIngreso(entry)
                 const tiempoEnSitio = fechaIngreso ? formatearDuracionDesde(fechaIngreso, nowMs) : '--:--:--'
                 const nombreCompleto = `${entry.nombres || ''} ${entry.apellidos || ''}`.trim() || 'Sin nombre'
                 const horaSalidaTexto = (entry.hora_salida || '').trim()
+                
+                // Determinar el tipo de ticket: si showAllTickets está activo, busca en qué array está
+                const entryType = showAllTickets
+                  ? (vehicularTickets.some(t => t.numero_ticket === entry.numero_ticket) ? 'vehicular' : 'pedestrian')
+                  : dashboardView
 
                 return (
-                  <tr key={String(entry.numero_ticket || nombreCompleto)} className={`entry-row entry-${dashboardView}`}>
+                  <tr key={`${entry.numero_ticket}-${index}`} className={`entry-row entry-${entryType}`}>
                     <td className="type-cell">
-                      <span className={`badge ${dashboardView === 'vehicular' ? 'badge-vehicular' : 'badge-peatonal'}`}>
+                      <span className={`badge ${entryType === 'vehicular' ? 'badge-vehicular' : 'badge-peatonal'}`}>
                         {entry.numero_ticket || '-'}
                       </span>
                     </td>
@@ -849,7 +898,7 @@ export default function MainDashboard() {
                           type="button"
                           className="btn-photos"
                           onClick={() =>
-                            dashboardView === 'vehicular'
+                            entryType === 'vehicular'
                               ? handleRevisarFotosVehicular(entry as TicketVehicular)
                               : handleRevisarFotosPeatonal(entry as TicketPeatonal)
                           }
@@ -863,7 +912,7 @@ export default function MainDashboard() {
                             type="button"
                             className="btn-exit"
                             onClick={() =>
-                              dashboardView === 'vehicular'
+                              entryType === 'vehicular'
                                 ? handleRegistrarSalidaVehicular(entry as TicketVehicular)
                                 : handleRegistrarSalidaPeatonal(entry as TicketPeatonal)
                             }
@@ -1035,23 +1084,22 @@ export default function MainDashboard() {
                       </select>
                     </div>
 
-                    {editingTicketType === 'vehicular' && (
-                      <div className="form-group-inline">
-                        <label>Motivo</label>
-                        <select
-                          value={editingData.motivo}
-                          onChange={(e) => handleEditFieldChange('motivo', e.target.value)}
-                          disabled={savingChanges}
-                        >
-                          <option value="">Seleccionar motivo...</option>
-                          {motivosFiltrados.map((motivo, idx) => (
-                            <option key={idx} value={motivo}>
-                              {motivo}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                    <div className="form-group-inline">
+                      <label>Motivo <span className="required">*</span></label>
+                      <select
+                        value={editingData.motivo}
+                        onChange={(e) => handleEditFieldChange('motivo', e.target.value)}
+                        disabled={savingChanges}
+                        required
+                      >
+                        <option value="">Seleccionar motivo...</option>
+                        {motivosFiltrados.map((motivo, idx) => (
+                          <option key={idx} value={motivo}>
+                            {motivo}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
                     <button
                       type="button"
