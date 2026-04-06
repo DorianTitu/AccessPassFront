@@ -81,6 +81,39 @@ function obtenerFechaIngreso(ticket: TicketPeatonal | TicketVehicular): Date | n
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
+function obtenerFechaRegistroFormato(ticket: TicketPeatonal | TicketVehicular): string {
+  const fecha = obtenerFechaIngreso(ticket)
+  if (!fecha) {
+    console.warn('⚠️ No se pudo parsear fecha de ticket:', ticket.fecha_registro)
+    return ''
+  }
+  // Usar zona horaria local, no UTC
+  const year = fecha.getFullYear()
+  const month = String(fecha.getMonth() + 1).padStart(2, '0')
+  const day = String(fecha.getDate()).padStart(2, '0')
+  const resultado = `${year}-${month}-${day}`
+  
+  console.debug(`📅 Ticket ${ticket.numero_ticket}: ${ticket.fecha_registro} → ${resultado}`)
+  return resultado
+}
+
+function obtenerFechaHoy(): string {
+  const hoy = new Date()
+  const year = hoy.getFullYear()
+  const month = String(hoy.getMonth() + 1).padStart(2, '0')
+  const day = String(hoy.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function restarDias(fecha: string, dias: number): string {
+  const date = new Date(fecha + 'T00:00:00')
+  date.setDate(date.getDate() - dias)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export default function MainDashboard() {
   const [currentPage, setCurrentPage] = useState<Page>('main')
   const [dashboardView, setDashboardView] = useState<DashboardView>('vehicular')
@@ -98,7 +131,9 @@ export default function MainDashboard() {
   const [showImagePreview, setShowImagePreview] = useState(false)
   const [previewImageSrc, setPreviewImageSrc] = useState('')
   const [previewImageAlt, setPreviewImageAlt] = useState('')
+  const [selectedDate, setSelectedDate] = useState(obtenerFechaHoy())
   const [selectedTicketCode, setSelectedTicketCode] = useState('')
+  const [showAllTickets, setShowAllTickets] = useState(false)
   const [selectedTicketInfo, setSelectedTicketInfo] = useState<SelectedTicketInfo | null>(null)
   const [ticketPhotos, setTicketPhotos] = useState<Record<string, { archivo: string; size_bytes: number; image_base64: string }>>({})
   const [missingPhotos, setMissingPhotos] = useState<string[]>([])
@@ -125,35 +160,47 @@ export default function MainDashboard() {
     setLoading(true)
     setError('')
 
+    console.log('🔄 Iniciando carga de histórico...')
+    console.log('📅 Fecha seleccionada:', selectedDate)
+
     const [vehicularResponse, peatonalResponse] = await Promise.all([
       obtenerRegistrosVehiculares(),
       obtenerRegistrosPeatonales()
     ])
 
+    console.log('🚗 Respuesta Vehicular:', vehicularResponse)
+    console.log('🚶 Respuesta Peatonal:', peatonalResponse)
+
     if (vehicularResponse.success) {
-      setVehicularTickets(vehicularResponse.tickets)
+      console.log(`✅ Tickets vehiculares cargados: ${vehicularResponse.tickets?.length || 0}`)
+      setVehicularTickets(vehicularResponse.tickets || [])
     } else {
+      console.log('❌ Error al cargar vehiculares:', vehicularResponse.mensaje)
       setVehicularTickets([])
     }
 
     if (peatonalResponse.success) {
-      setPedestrianTickets(peatonalResponse.tickets)
+      console.log(`✅ Tickets peatonales cargados: ${peatonalResponse.tickets?.length || 0}`)
+      setPedestrianTickets(peatonalResponse.tickets || [])
     } else {
+      console.log('❌ Error al cargar peatonales:', peatonalResponse.mensaje)
       setPedestrianTickets([])
     }
 
     if (!vehicularResponse.success && !peatonalResponse.success) {
-      setError(
+      const errorMsg =
         vehicularResponse.mensaje ||
-          peatonalResponse.mensaje ||
-          'No se pudo cargar el historico de tickets'
-      )
+        peatonalResponse.mensaje ||
+        'No se pudo cargar el historico de tickets'
+      console.error('🚨 Error crítico:', errorMsg)
+      setError(errorMsg)
     }
 
     setLoading(false)
   }
 
   useEffect(() => {
+    console.log('🎯 MainDashboard montado, cargando histórico...')
     cargarHistorico()
   }, [])
 
@@ -162,6 +209,12 @@ export default function MainDashboard() {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('theme-mode', theme)
   }, [isDarkMode])
+
+  useEffect(() => {
+    console.log('📅 Fecha cambió a:', selectedDate)
+    // Recargar histórico cuando cambia la fecha
+    cargarHistorico()
+  }, [selectedDate])
 
   const handleRegistroExitoso = async () => {
     await cargarHistorico()
@@ -529,7 +582,29 @@ export default function MainDashboard() {
       sourceTickets = pedestrianTickets
     }
 
+    console.log(`📊 Filtrando ${dashboardView}:`, {
+      total: sourceTickets.length,
+      selectedDate,
+      searchTerm,
+      filterType,
+      showAllTickets
+    })
+
     const filtered = sourceTickets.filter((ticket) => {
+      // Filtro por fecha (solo si no está en modo "Ver todo")
+      if (!showAllTickets) {
+        const fechaTicket = obtenerFechaRegistroFormato(ticket)
+        const fechaValida = fechaTicket === selectedDate
+
+        if (!fechaValida) {
+          console.debug(`⏭️ Ticket ${ticket.numero_ticket}: fecha ${fechaTicket} ≠ ${selectedDate}`)
+        }
+
+        if (fechaTicket !== selectedDate) {
+          return false
+        }
+      }
+
       const nombres = (ticket.nombres || '').trim()
       const apellidos = (ticket.apellidos || '').trim()
       const fullName = `${nombres} ${apellidos}`.trim().toLowerCase()
@@ -550,11 +625,18 @@ export default function MainDashboard() {
       return matchesSearch && matchesType
     })
 
+    console.log(`✨ Resultados filtrados: ${filtered.length}`)
     return filtered.reverse()
-  }, [pedestrianTickets, vehicularTickets, searchTerm, filterType, dashboardView])
+  }, [pedestrianTickets, vehicularTickets, searchTerm, filterType, dashboardView, selectedDate, showAllTickets])
 
-  const pedestrianCount = pedestrianTickets.length
-  const vehicleCount = vehicularTickets.length
+  const pedestrianCount = useMemo(() => {
+    return pedestrianTickets.filter(t => obtenerFechaRegistroFormato(t) === selectedDate).length
+  }, [pedestrianTickets, selectedDate])
+
+  const vehicleCount = useMemo(() => {
+    return vehicularTickets.filter(t => obtenerFechaRegistroFormato(t) === selectedDate).length
+  }, [vehicularTickets, selectedDate])
+
   const totalCount = pedestrianCount + vehicleCount
 
   if (currentPage === 'dashboard') {
@@ -596,67 +678,104 @@ export default function MainDashboard() {
         </div>
       </header>
 
-      {/* Stats */}
-      <section className="stats-section">
-        <div className="stat-card">
-          <div className="stat-label">Ingresos Peatonales</div>
-          <div className="stat-value pedestrian-stat">{pedestrianCount}</div>
+      {/* Control Panel - Unificado */}
+      <section className="control-panel">
+        {/* Stats */}
+        <div className="stats-section">
+          <div className="stat-card">
+            <div className="stat-label">Ingresos Peatonales</div>
+            <div className="stat-value pedestrian-stat">{pedestrianCount}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Ingresos Vehiculares</div>
+            <div className="stat-value vehicular-stat">{vehicleCount}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">Total Ingresos</div>
+            <div className="stat-value total-stat">{totalCount}</div>
+          </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Ingresos Vehiculares</div>
-          <div className="stat-value vehicular-stat">{vehicleCount}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Total Ingresos</div>
-          <div className="stat-value total-stat">{totalCount}</div>
+
+        {/* Dashboard View Tabs */}
+        <div className="dashboard-tabs">
+          <button
+            className={`tab-button ${dashboardView === 'vehicular' ? 'active' : ''}`}
+            onClick={() => setDashboardView('vehicular')}
+          >
+            Vehicular
+          </button>
+          <button
+            className={`tab-button ${dashboardView === 'pedestrian' ? 'active' : ''}`}
+            onClick={() => setDashboardView('pedestrian')}
+          >
+            Peatonal
+          </button>
         </div>
       </section>
 
-      {/* Dashboard View Tabs */}
-      <section className="dashboard-tabs">
-        <button
-          className={`tab-button ${dashboardView === 'vehicular' ? 'active' : ''}`}
-          onClick={() => setDashboardView('vehicular')}
-        >
-          Ingresos Vehiculares
-        </button>
-        <button
-          className={`tab-button ${dashboardView === 'pedestrian' ? 'active' : ''}`}
-          onClick={() => setDashboardView('pedestrian')}
-        >
-          Ingresos Peatonales
-        </button>
-      </section>
+      {/* Filtro de Fecha - Encima de la tabla */}
+      <section className="date-filter-section">
+        <div className="date-filter-wrapper">
+          {!showAllTickets && (
+            <div className="date-controls-group">
+              <label htmlFor="date-input">Fecha:</label>
+              <div className="date-controls">
+                <div className="date-navigation">
+                  <button
+                    type="button"
+                    className="date-arrow-btn prev"
+                    onClick={() => setSelectedDate(restarDias(selectedDate, 1))}
+                    title="Día anterior"
+                    disabled={showAllTickets}
+                  >
+                    &lt;
+                  </button>
+                  <input
+                    id="date-input"
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => {
+                      setSelectedDate(e.target.value)
+                      setShowAllTickets(false)
+                    }}
+                    max={obtenerFechaHoy()}
+                    className="date-input"
+                    disabled={showAllTickets}
+                  />
+                  <button
+                    type="button"
+                    className="date-arrow-btn next"
+                    onClick={() => setSelectedDate(new Date(new Date(selectedDate).getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0])}
+                    title="Día siguiente"
+                    disabled={selectedDate >= obtenerFechaHoy() || showAllTickets}
+                  >
+                    &gt;
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
-      {/* Filtros y búsqueda */}
-      <section className="filters-section">
-        <div className="search-box">
-          <input
-            type="text"
-            placeholder={dashboardView === 'vehicular' ? 'Buscar por nombre, cédula o placa...' : 'Buscar por nombre o cédula...'}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-        </div>
-        <div className="filter-buttons">
+          <div className="search-controls-group">
+            <label htmlFor="search-input-date-section">
+              {showAllTickets ? 'Buscar en todos:' : 'Buscar:'}
+            </label>
+            <input
+              id="search-input-date-section"
+              type="text"
+              placeholder="Nombre, cédula o ticket..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input-large"
+            />
+          </div>
+          
           <button
-            className={`filter-btn ${filterType === 'all' ? 'active' : ''}`}
-            onClick={() => setFilterType('all')}
+            className={`btn-show-all ${showAllTickets ? 'active' : ''}`}
+            onClick={() => setShowAllTickets(!showAllTickets)}
+            type="button"
           >
-            Todos
-          </button>
-          <button
-            className={`filter-btn ${filterType === 'open' ? 'active' : ''}`}
-            onClick={() => setFilterType('open')}
-          >
-            Sin Salida
-          </button>
-          <button
-            className={`filter-btn ${filterType === 'closed' ? 'active' : ''}`}
-            onClick={() => setFilterType('closed')}
-          >
-            Con Salida
+            {showAllTickets ? 'Filtrar por Fecha' : 'Ver Todo'}
           </button>
         </div>
       </section>
@@ -765,7 +884,24 @@ export default function MainDashboard() {
         </div>
         {!loading && !error && filteredEntries.length === 0 && (
           <div className="no-results">
-            <p>No se encontraron tickets</p>
+            {showAllTickets ? (
+              <>
+                <p>No hay registros disponibles</p>
+                <small>Verifica que realmente existan tickets en la base de datos</small>
+              </>
+            ) : (
+              <>
+                <p>No se encontraron tickets para {selectedDate}</p>
+                <small>
+                  <button 
+                    onClick={() => setShowAllTickets(true)}
+                    className="link-button"
+                  >
+                    Ver todos los tickets
+                  </button>
+                </small>
+              </>
+            )}
           </div>
         )}
       </section>
