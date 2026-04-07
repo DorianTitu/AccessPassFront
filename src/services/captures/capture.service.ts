@@ -36,6 +36,30 @@ function obtenerBase64Plano(imageData: string): string {
 }
 
 /**
+ * Limpia textos de OCR que suelen colarse desde encabezados de la cédula.
+ */
+function limpiarTextoOCR(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  return value.trim().replace(/\s+/g, ' ')
+}
+
+/**
+ * Filtra ruido común en apellidos (por ejemplo, "CONDICI...").
+ */
+function limpiarApellidosOCR(value: unknown): string {
+  const text = limpiarTextoOCR(value)
+  if (!text) return ''
+
+  // Evita tomar el texto del encabezado "CONDICIÓN ..." como apellido.
+  const normalized = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()
+  if (normalized.startsWith('CONDICI')) {
+    return ''
+  }
+
+  return text
+}
+
+/**
  * Extrae campos de cédula mediante OCR
  */
 export async function extraerCamposCedula(
@@ -206,8 +230,8 @@ export async function capturarCedulaConductor(): Promise<{
     return {
       fotoCedula: imagen,
       nui: (ocrData as any)?.cedula || (ocrData as any)?.nui || '',
-      nombres: (ocrData as any)?.nombres || '',
-      apellidos: (ocrData as any)?.apellidos || '',
+      nombres: limpiarTextoOCR((ocrData as any)?.nombres),
+      apellidos: limpiarApellidosOCR((ocrData as any)?.apellidos),
       exito
     }
   } catch (error) {
@@ -224,8 +248,10 @@ export async function extraerCedulaVehicular(
 ): Promise<ExtraerCedulaVehicularResponse> {
   try {
     const base64Plain = obtenerBase64Plano(imageData)
-    const url = `${ENDPOINTS.EXTRAER_CEDULA_VEHICULAR}?imagen_cedula_base64=${encodeURIComponent(base64Plain)}`
-    const response = await httpGet<Record<string, unknown>>(url)
+    const response = await httpPost<Record<string, unknown>>(
+      ENDPOINTS.EXTRAER_CEDULA_VEHICULAR,
+      { imagen_cedula_base64: base64Plain }
+    )
 
     if (!response.ok || !response.data) {
       return { exito: false, nui: '', nombres: '', apellidos: '' }
@@ -237,8 +263,8 @@ export async function extraerCedulaVehicular(
     return {
       exito: data.success === true,
       nui: (ocrData as any)?.cedula || (ocrData as any)?.nui || '',
-      nombres: (ocrData as any)?.nombres || '',
-      apellidos: (ocrData as any)?.apellidos || ''
+      nombres: limpiarTextoOCR((ocrData as any)?.nombres),
+      apellidos: limpiarApellidosOCR((ocrData as any)?.apellidos)
     }
   } catch (error) {
     console.error('Error al extraer OCR de cédula vehicular:', error)
@@ -302,8 +328,8 @@ export async function capturarCedulaPeatonal(): Promise<{
     if (data.ocr_data) {
       const ocrData = data.ocr_data as any
       nui = ocrData.cedula || ocrData.nui || ''
-      nombres = ocrData.nombres || ''
-      apellidos = ocrData.apellidos || ''
+      nombres = limpiarTextoOCR(ocrData.nombres)
+      apellidos = limpiarApellidosOCR(ocrData.apellidos)
     }
 
     return { fotoID: imagen, nui, nombres, apellidos, exito }

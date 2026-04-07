@@ -179,54 +179,49 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
     try {
       let errorCount = 0
 
-      const cedulaStart = performance.now()
-      const cedulaTask = capturarCedulaPeatonal()
-        .then((cedulaResult) => {
-          console.log('Frontend tiempo cédula peatonal (ms):', Math.round(performance.now() - cedulaStart))
-
-          if (cedulaResult.exito && cedulaResult.fotoID) {
-            const imageData = typeof cedulaResult.fotoID === 'string' && cedulaResult.fotoID.startsWith('data:')
-              ? cedulaResult.fotoID
-              : `data:image/jpeg;base64,${cedulaResult.fotoID}`
-            setPhotoID(imageData)
-
-            // Llenar datos OCR en los campos del formulario
-            setFormData(prev => ({
-              ...prev,
-              cedula: cedulaResult.nui || prev.cedula,
-              nombres: cedulaResult.nombres || prev.nombres,
-              apellidos: cedulaResult.apellidos || prev.apellidos
-            }))
-          } else {
-            errorCount++
-          }
-        })
-        .catch((error) => {
-          console.error('Error en captura de cédula peatonal:', error)
-          errorCount++
-        })
-
       const rostroStart = performance.now()
-      const rostroTask = capturarRostroPeatonal()
-        .then((rostroResult) => {
-          console.log('Frontend tiempo rostro peatonal (ms):', Math.round(performance.now() - rostroStart))
+      try {
+        const rostroResult = await capturarRostroPeatonal()
+        console.log('Frontend tiempo rostro peatonal (ms):', Math.round(performance.now() - rostroStart))
 
-          if (rostroResult.exito && rostroResult.fotoFace) {
-            const imageData = typeof rostroResult.fotoFace === 'string' && rostroResult.fotoFace.startsWith('data:')
-              ? rostroResult.fotoFace
-              : `data:image/jpeg;base64,${rostroResult.fotoFace}`
-            setPhotoFace(imageData)
-          } else {
-            errorCount++
-          }
-        })
-        .catch((error) => {
-          console.error('Error en captura de rostro peatonal:', error)
+        if (rostroResult.exito && rostroResult.fotoFace) {
+          const imageData = typeof rostroResult.fotoFace === 'string' && rostroResult.fotoFace.startsWith('data:')
+            ? rostroResult.fotoFace
+            : `data:image/jpeg;base64,${rostroResult.fotoFace}`
+          setPhotoFace(imageData)
+        } else {
           errorCount++
-        })
+        }
+      } catch (error) {
+        console.error('Error en captura de rostro peatonal:', error)
+        errorCount++
+      }
 
-      // Espera final para cerrar el estado de carga, pero cada imagen se renderiza apenas llega.
-      await Promise.all([cedulaTask, rostroTask])
+      const cedulaStart = performance.now()
+      try {
+        const cedulaResult = await capturarCedulaPeatonal()
+        console.log('Frontend tiempo cédula peatonal (ms):', Math.round(performance.now() - cedulaStart))
+
+        if (cedulaResult.exito && cedulaResult.fotoID) {
+          const imageData = typeof cedulaResult.fotoID === 'string' && cedulaResult.fotoID.startsWith('data:')
+            ? cedulaResult.fotoID
+            : `data:image/jpeg;base64,${cedulaResult.fotoID}`
+          setPhotoID(imageData)
+
+          // Llenar datos OCR en los campos del formulario
+          setFormData(prev => ({
+            ...prev,
+            cedula: cedulaResult.nui || prev.cedula,
+            nombres: cedulaResult.nombres || prev.nombres,
+            apellidos: cedulaResult.apellidos || prev.apellidos
+          }))
+        } else {
+          errorCount++
+        }
+      } catch (error) {
+        console.error('Error en captura de cédula peatonal:', error)
+        errorCount++
+      }
 
       console.log('Frontend tiempo total captura peatonal (ms):', Math.round(performance.now() - captureStart))
 
