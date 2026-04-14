@@ -10,6 +10,9 @@ export interface Configuracion {
   departamentos: Departamento[]
 }
 
+const ordenarDepartamentos = (departamentos: Departamento[]): Departamento[] =>
+  [...departamentos].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }))
+
 // Mantener una copia en memoria que se actualiza cuando se guarda
 let configEnMemoria: Configuracion | null = null
 
@@ -19,6 +22,7 @@ let configEnMemoria: Configuracion | null = null
 export function obtenerConfiguracion(): Configuracion {
   // Si existe en memoria, devolverla
   if (configEnMemoria) {
+    configEnMemoria.departamentos = ordenarDepartamentos(configEnMemoria.departamentos)
     return configEnMemoria
   }
   
@@ -27,6 +31,7 @@ export function obtenerConfiguracion(): Configuracion {
   if (stored) {
     try {
       configEnMemoria = JSON.parse(stored)
+      configEnMemoria.departamentos = ordenarDepartamentos(configEnMemoria.departamentos)
       return configEnMemoria
     } catch (e) {
       console.error('Error al parsear configuración del localStorage:', e)
@@ -34,6 +39,7 @@ export function obtenerConfiguracion(): Configuracion {
   }
   // Si no existe en localStorage, retornar la configuración por defecto
   configEnMemoria = JSON.parse(JSON.stringify(configuracion)) // Deep copy
+  configEnMemoria.departamentos = ordenarDepartamentos(configEnMemoria.departamentos)
   return configEnMemoria
 }
 
@@ -66,6 +72,7 @@ export function obtenerIdDepartamento(nombreDepartamento: string): number {
  * Actualiza la configuración (simulado - en producción iría a un backend)
  */
 export function actualizarConfiguracion(nuevaConfiguracion: Configuracion): void {
+  nuevaConfiguracion.departamentos = ordenarDepartamentos(nuevaConfiguracion.departamentos)
   // Guardar en memoria
   configEnMemoria = nuevaConfiguracion
   // Guardar en localStorage

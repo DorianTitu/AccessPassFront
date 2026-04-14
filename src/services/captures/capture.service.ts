@@ -7,7 +7,8 @@ import { ENDPOINTS, CAPTURE_PARAMS } from '../constants'
 import type {
   ExtraerCamposResponse,
   ExtraerPlacaResponse,
-  ExtraerCedulaVehicularResponse
+  ExtraerCedulaVehicularResponse,
+  ExtraerCedulaPeatonalResponse
 } from '../types'
 
 /**
@@ -273,6 +274,38 @@ export async function extraerCedulaVehicular(
 }
 
 /**
+ * Extrae OCR de cédula peatonal
+ */
+export async function extraerCedulaPeatonal(
+  imageData: string
+): Promise<ExtraerCedulaPeatonalResponse> {
+  try {
+    const base64Plain = obtenerBase64Plano(imageData)
+    const response = await httpPost<Record<string, unknown>>(
+      ENDPOINTS.EXTRAER_CEDULA_PEATONAL,
+      { imagen_cedula_base64: base64Plain }
+    )
+
+    if (!response.ok || !response.data) {
+      return { exito: false, nui: '', nombres: '', apellidos: '' }
+    }
+
+    const data = response.data
+    const ocrData = data.ocr_data && typeof data.ocr_data === 'object' ? data.ocr_data : null
+
+    return {
+      exito: data.success === true,
+      nui: (ocrData as any)?.cedula || (ocrData as any)?.nui || '',
+      nombres: limpiarTextoOCR((ocrData as any)?.nombres),
+      apellidos: limpiarApellidosOCR((ocrData as any)?.apellidos)
+    }
+  } catch (error) {
+    console.error('Error al extraer OCR de cédula peatonal:', error)
+    return { exito: false, nui: '', nombres: '', apellidos: '' }
+  }
+}
+
+/**
  * Captura imágenes para registro peatonal
  */
 export async function capturarImagenesPeatonal(): Promise<{
@@ -300,7 +333,7 @@ export async function capturarImagenesPeatonal(): Promise<{
 }
 
 /**
- * Captura cédula para registro peatonal
+ * Captura cédula para registro peatonal (OPTIMIZADO - directa sin wrapper overhead)
  */
 export async function capturarCedulaPeatonal(): Promise<{
   fotoID: string
@@ -311,28 +344,32 @@ export async function capturarCedulaPeatonal(): Promise<{
 }> {
   try {
     const url = `${ENDPOINTS.CAPTURA_CEDULA_PEATONAL}?${CAPTURE_PARAMS.INCLUDE_DATA_URL}&${CAPTURE_PARAMS.INCLUDE_IMAGE}&${CAPTURE_PARAMS.RESPONSE_MODE}`
-    const response = await httpGet<Record<string, unknown>>(url)
+    
+    // ⚡ OPTIMIZACIÓN: fetch directo, sin wrapper httpGet
+    const rawResponse = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'accept': 'application/json'
+      }
+    })
 
-    if (!response.ok || !response.data) {
+    if (!rawResponse.ok) {
       return { fotoID: '', nui: '', nombres: '', apellidos: '', exito: false }
     }
 
-    const data = response.data
-    const imagen = (data.image_base64 as string) || ''
-    const exito = data.success === true && !!imagen
+    // ⚡ Parse JSON directo
+    const data = await rawResponse.json() as any
+    const imagen = data.image_base64 || ''
 
-    let nui = ''
-    let nombres = ''
-    let apellidos = ''
-
-    if (data.ocr_data) {
-      const ocrData = data.ocr_data as any
-      nui = ocrData.cedula || ocrData.nui || ''
-      nombres = limpiarTextoOCR(ocrData.nombres)
-      apellidos = limpiarApellidosOCR(ocrData.apellidos)
+    // En GET /capture NO viene ocr_data procesado, solo imagen
+    // Esto es correcto: el OCR lo hace POST /extract después
+    return {
+      fotoID: imagen,
+      nui: '',
+      nombres: '',
+      apellidos: '',
+      exito: !!imagen
     }
-
-    return { fotoID: imagen, nui, nombres, apellidos, exito }
   } catch (error) {
     console.error('Error al capturar cédula peatonal:', error)
     return { fotoID: '', nui: '', nombres: '', apellidos: '', exito: false }
@@ -340,7 +377,7 @@ export async function capturarCedulaPeatonal(): Promise<{
 }
 
 /**
- * Captura rostro para registro peatonal
+ * Captura rostro para registro peatonal (OPTIMIZADO - directa sin wrapper overhead)
  */
 export async function capturarRostroPeatonal(): Promise<{
   fotoFace: string
@@ -348,17 +385,24 @@ export async function capturarRostroPeatonal(): Promise<{
 }> {
   try {
     const url = `${ENDPOINTS.CAPTURA_ROSTRO_PEATONAL}?${CAPTURE_PARAMS.INCLUDE_DATA_URL}&${CAPTURE_PARAMS.INCLUDE_IMAGE}&${CAPTURE_PARAMS.RESPONSE_MODE}`
-    const response = await httpGet<Record<string, unknown>>(url)
+    
+    // ⚡ OPTIMIZACIÓN: fetch directo, sin wrapper httpGet
+    const rawResponse = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'accept': 'application/json'
+      }
+    })
 
-    if (!response.ok || !response.data) {
+    if (!rawResponse.ok) {
       return { fotoFace: '', exito: false }
     }
 
-    const data = response.data
-    const imagen = (data.image_base64 as string) || ''
-    const exito = data.success === true && !!imagen
+    // ⚡ Parse JSON directo
+    const data = await rawResponse.json() as any
+    const imagen = data.image_base64 || ''
 
-    return { fotoFace: imagen, exito }
+    return { fotoFace: imagen, exito: !!imagen }
   } catch (error) {
     console.error('Error al capturar rostro peatonal:', error)
     return { fotoFace: '', exito: false }

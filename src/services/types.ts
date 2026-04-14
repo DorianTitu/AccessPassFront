@@ -24,6 +24,13 @@ export interface ExtraerCedulaVehicularResponse {
   apellidos: string
 }
 
+export interface ExtraerCedulaPeatonalResponse {
+  exito: boolean
+  nui: string
+  nombres: string
+  apellidos: string
+}
+
 // === Tickets ===
 export interface TicketVehicular {
   numero_ticket: string

@@ -11,6 +11,7 @@ export const ENDPOINTS = {
   EXTRAER_CAMPOS: '/extraer-campos',
   PLACA_EXTRAER: '/placa/extraer',
   EXTRAER_CEDULA_VEHICULAR: '/extract/camara_cedula_entrada_vehicular',
+  EXTRAER_CEDULA_PEATONAL: '/extract/camara_cedula_entrada_peatonal',
   
   // Captura
   CAPTURA_PLACA: '/capture/camara_placa_entrada_vehicular',

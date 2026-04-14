@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   capturarCedulaPeatonal,
   capturarRostroPeatonal,
+  extraerCedulaPeatonal,
   guardarRegistroPeatonal
 } from '../services/api'
 import { obtenerDepartamentos, obtenerMotivos } from '../services/configuracion'
@@ -33,6 +34,7 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [guardando, setGuardando] = useState(false)
+  const [ocrLoading, setOcrLoading] = useState(false)
 
   // Actualizar hora en tiempo real
   useEffect(() => {
@@ -159,9 +161,7 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
   }
 
   const handleCapturar = async () => {
-    const captureStart = performance.now()
-    setLoading(true)
-    // Reinicia datos de captura para evitar arrastrar información anterior.
+    // 🧹 LIMPIAR PRIMERO todo antes de capturar nuevamente
     setPhotoID(null)
     setPhotoFace(null)
     setFormData(prev => ({
@@ -170,60 +170,79 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
       nombres: '',
       apellidos: ''
     }))
-    setErrors(prev => ({
-      ...prev,
-      cedula: '',
-      nombres: '',
-      apellidos: ''
-    }))
+    setErrors({})
+    
+    setLoading(true)
+    setOcrLoading(false)
+
     try {
       let errorCount = 0
+      let photoCedulaTemp: string | null = null
+      let photoRostroTemp: string | null = null
+      let ocrPromise: Promise<void> | null = null
 
-      const rostroStart = performance.now()
-      try {
-        const rostroResult = await capturarRostroPeatonal()
-        console.log('Frontend tiempo rostro peatonal (ms):', Math.round(performance.now() - rostroStart))
-
+      // Capturar rostro
+      const rostroPromise = capturarRostroPeatonal().then((rostroResult) => {
         if (rostroResult.exito && rostroResult.fotoFace) {
           const imageData = typeof rostroResult.fotoFace === 'string' && rostroResult.fotoFace.startsWith('data:')
             ? rostroResult.fotoFace
             : `data:image/jpeg;base64,${rostroResult.fotoFace}`
-          setPhotoFace(imageData)
-        } else {
-          errorCount++
+          photoRostroTemp = imageData
+          return
         }
-      } catch (error) {
-        console.error('Error en captura de rostro peatonal:', error)
         errorCount++
-      }
+      }).catch((error) => {
+        console.error('Error al capturar rostro:', error)
+        errorCount++
+      })
 
-      const cedulaStart = performance.now()
-      try {
-        const cedulaResult = await capturarCedulaPeatonal()
-        console.log('Frontend tiempo cédula peatonal (ms):', Math.round(performance.now() - cedulaStart))
-
+      // Capturar cédula
+      const cedulaPromise = capturarCedulaPeatonal().then((cedulaResult) => {
         if (cedulaResult.exito && cedulaResult.fotoID) {
           const imageData = typeof cedulaResult.fotoID === 'string' && cedulaResult.fotoID.startsWith('data:')
             ? cedulaResult.fotoID
             : `data:image/jpeg;base64,${cedulaResult.fotoID}`
-          setPhotoID(imageData)
+          photoCedulaTemp = imageData
 
-          // Llenar datos OCR en los campos del formulario
-          setFormData(prev => ({
-            ...prev,
-            cedula: cedulaResult.nui || prev.cedula,
-            nombres: cedulaResult.nombres || prev.nombres,
-            apellidos: cedulaResult.apellidos || prev.apellidos
-          }))
-        } else {
-          errorCount++
+          // Iniciar OCR apenas la cédula esté lista, sin esperar al rostro.
+          setOcrLoading(true)
+          ocrPromise = extraerCedulaPeatonal(imageData)
+            .then((ocrResult) => {
+              if (ocrResult.exito) {
+                setFormData(prev => ({
+                  ...prev,
+                  cedula: ocrResult.nui || prev.cedula,
+                  nombres: ocrResult.nombres || prev.nombres,
+                  apellidos: ocrResult.apellidos || prev.apellidos
+                }))
+              }
+            })
+            .catch((error) => {
+              console.error('Error al extraer OCR peatonal:', error)
+            })
+            .finally(() => {
+              setOcrLoading(false)
+            })
+          return
         }
-      } catch (error) {
-        console.error('Error en captura de cédula peatonal:', error)
         errorCount++
-      }
+      }).catch((error) => {
+        console.error('Error al capturar cédula:', error)
+        errorCount++
+      })
 
-      console.log('Frontend tiempo total captura peatonal (ms):', Math.round(performance.now() - captureStart))
+      await Promise.allSettled([rostroPromise, cedulaPromise])
+
+      // Mostrar las fotos cuando ambas estén listos
+      setPhotoFace(photoRostroTemp)
+      setPhotoID(photoCedulaTemp)
+
+      setLoading(false)
+
+      // Si OCR ya arrancó, esperar a que termine antes de salir.
+      if (ocrPromise) {
+        await ocrPromise
+      }
 
       if (errorCount > 0) {
         alert(`Error: Solo se capturaron ${2 - errorCount} de 2 imágenes`)
@@ -233,6 +252,7 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
       alert('Error al capturar imágenes')
     } finally {
       setLoading(false)
+      setOcrLoading(false)
     }
   }
 
@@ -291,7 +311,10 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
           {/* Formulario */}
           <div className="form-fields">
             <div className="form-group">
-              <label>Nombres: <span className="required">*</span></label>
+              <label>
+                Nombres: <span className="required">*</span>
+                {ocrLoading && <span className="ocr-loading-indicator" title="Procesando OCR"></span>}
+              </label>
               <input
                 type="text"
                 name="nombres"
@@ -304,7 +327,10 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
             </div>
 
             <div className="form-group">
-              <label>Apellidos: <span className="required">*</span></label>
+              <label>
+                Apellidos: <span className="required">*</span>
+                {ocrLoading && <span className="ocr-loading-indicator" title="Procesando OCR"></span>}
+              </label>
               <input
                 type="text"
                 name="apellidos"
@@ -317,7 +343,10 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
             </div>
 
             <div className="form-group">
-              <label>N° de Cédula: <span className="required">*</span></label>
+              <label>
+                N° de Cédula: <span className="required">*</span>
+                {ocrLoading && <span className="ocr-loading-indicator" title="Procesando OCR"></span>}
+              </label>
               <input
                 type="text"
                 name="cedula"
