@@ -20,6 +20,11 @@ export type {
   TicketVehicular,
   TicketPeatonal,
   TicketPeatonalRaw,
+  TicketPeatonalDiaRaw,
+  ObtenerIngresosPeatonalDiaResponse,
+  DetalleTicketPeatonalDatos,
+  ObtenerDetalleTicketPeatonalResponse,
+  ActualizarDetalleTicketPeatonalPayload,
   InformacionTicket,
   FotoTicket,
   GuardarRegistroVehicularPayload,
@@ -43,7 +48,10 @@ export {
   obtenerFotosTicket,
   obtenerFotosTicketPeatonal,
   obtenerRegistrosVehiculares,
-  obtenerRegistrosPeatonales
+  obtenerRegistrosPeatonales,
+  obtenerRegistrosPeatonalesPorDia,
+  obtenerDetalleTicketPeatonal,
+  actualizarDetalleTicketPeatonal
 } from './tickets/ticket.service'
 
 // Servicios de Registros
@@ -66,5 +74,11 @@ export {
   capturarImagenesPeatonal,
   capturarCedulaPeatonal,
   capturarRostroPeatonal,
+  obtenerImagenUsuarioPeatonal,
+  obtenerImagenCedulaPeatonal,
+  extraerNumeroCedula,
+  extraerNombresApellidosCedula,
+  extraerNumeroCedulaAntiga,
+  extraerNombresApellidosCedulaAntiga,
   verificarHealth
 } from './captures/capture.service'

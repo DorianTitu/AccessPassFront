@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react'
 import {
-  capturarCedulaPeatonal,
-  capturarRostroPeatonal,
-  extraerCedulaPeatonal,
+  obtenerImagenCedulaPeatonal,
+  obtenerImagenUsuarioPeatonal,
+  extraerNumeroCedula,
+  extraerNombresApellidosCedula,
+  extraerNumeroCedulaAntiga,
+  extraerNombresApellidosCedulaAntiga,
   guardarRegistroPeatonal
 } from '../services/api'
 import { obtenerDepartamentos, obtenerMotivos } from '../services/configuracion'
@@ -35,6 +38,7 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
   const [loading, setLoading] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [ocrLoading, setOcrLoading] = useState(false)
+  const [tipoCedula, setTipoCedula] = useState<'nueva' | 'antigua'>('nueva')
 
   // Actualizar hora en tiempo real
   useEffect(() => {
@@ -181,44 +185,42 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
       let photoRostroTemp: string | null = null
       let ocrPromise: Promise<void> | null = null
 
-      // Capturar rostro
-      const rostroPromise = capturarRostroPeatonal().then((rostroResult) => {
-        if (rostroResult.exito && rostroResult.fotoFace) {
-          const imageData = typeof rostroResult.fotoFace === 'string' && rostroResult.fotoFace.startsWith('data:')
-            ? rostroResult.fotoFace
-            : `data:image/jpeg;base64,${rostroResult.fotoFace}`
-          photoRostroTemp = imageData
-          return
-        }
-        errorCount++
-      }).catch((error) => {
-        console.error('Error al capturar rostro:', error)
-        errorCount++
-      })
-
-      // Capturar cédula
-      const cedulaPromise = capturarCedulaPeatonal().then((cedulaResult) => {
+      // Lanzar ambas peticiones en PARALELO
+      const cedulaPromise = obtenerImagenCedulaPeatonal().then((cedulaResult) => {
         if (cedulaResult.exito && cedulaResult.fotoID) {
-          const imageData = typeof cedulaResult.fotoID === 'string' && cedulaResult.fotoID.startsWith('data:')
-            ? cedulaResult.fotoID
-            : `data:image/jpeg;base64,${cedulaResult.fotoID}`
-          photoCedulaTemp = imageData
+          photoCedulaTemp = cedulaResult.fotoID
 
-          // Iniciar OCR apenas la cédula esté lista, sin esperar al rostro.
+          // Extraer el base64 puro del data URL para los endpoints OCR
+          const partes = cedulaResult.fotoID.split(',')
+          const base64Puro = partes.length > 1 ? partes[1] : cedulaResult.fotoID
+
+          // Iniciar OCR apenas la cédula esté lista - hacer ambas llamadas en paralelo
           setOcrLoading(true)
-          ocrPromise = extraerCedulaPeatonal(imageData)
-            .then((ocrResult) => {
-              if (ocrResult.exito) {
+          console.log(`[OCR] Lanzando OCR para Cédula ${tipoCedula === 'nueva' ? 'Nueva' : 'Antigua'}...`)
+          const inicioOCR = Date.now()
+          
+          // Elegir funciones según tipo de cédula
+          const fnNumero = tipoCedula === 'nueva' ? extraerNumeroCedula : extraerNumeroCedulaAntiga
+          const fnNombres = tipoCedula === 'nueva' ? extraerNombresApellidosCedula : extraerNombresApellidosCedulaAntiga
+          
+          ocrPromise = Promise.all([
+            fnNumero(base64Puro),
+            fnNombres(base64Puro)
+          ])
+            .then(([numeroResult, nombresResult]) => {
+              const tiempoOCR = Date.now() - inicioOCR
+              console.log(`[OCR] Ambas peticiones completadas en ${tiempoOCR}ms`)
+              if (numeroResult.exito || nombresResult.exito) {
                 setFormData(prev => ({
                   ...prev,
-                  cedula: ocrResult.nui || prev.cedula,
-                  nombres: ocrResult.nombres || prev.nombres,
-                  apellidos: ocrResult.apellidos || prev.apellidos
+                  cedula: numeroResult.numero || prev.cedula,
+                  nombres: nombresResult.nombres || prev.nombres,
+                  apellidos: nombresResult.apellidos || prev.apellidos
                 }))
               }
             })
             .catch((error) => {
-              console.error('Error al extraer OCR peatonal:', error)
+              console.error('Error al extraer OCR de cédula:', error)
             })
             .finally(() => {
               setOcrLoading(false)
@@ -227,11 +229,23 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
         }
         errorCount++
       }).catch((error) => {
-        console.error('Error al capturar cédula:', error)
+        console.error('Error al obtener imagen cédula:', error)
         errorCount++
       })
 
-      await Promise.allSettled([rostroPromise, cedulaPromise])
+      const rostroPromise = obtenerImagenUsuarioPeatonal().then((rostroResult) => {
+        if (rostroResult.exito && rostroResult.fotoFace) {
+          photoRostroTemp = rostroResult.fotoFace
+          return
+        }
+        errorCount++
+      }).catch((error) => {
+        console.error('Error al obtener imagen peatonal:', error)
+        errorCount++
+      })
+
+      // Esperar a ambas en paralelo
+      await Promise.allSettled([cedulaPromise, rostroPromise])
 
       // Mostrar las fotos cuando ambas estén listos
       setPhotoFace(photoRostroTemp)
@@ -399,6 +413,34 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
                 ))}
               </select>
               {errors.motivo && <span className="error-message">{errors.motivo}</span>}
+            </div>
+
+            <div className="form-group">
+              <label>Tipo de Cédula: <span className="required">*</span></label>
+              <div className="cedula-type-options">
+                <div className="radio-option">
+                  <input
+                    type="radio"
+                    id="cedula-nueva"
+                    name="tipoCedula"
+                    value="nueva"
+                    checked={tipoCedula === 'nueva'}
+                    onChange={(e) => setTipoCedula(e.target.value as 'nueva' | 'antigua')}
+                  />
+                  <label htmlFor="cedula-nueva">Cédula Nueva</label>
+                </div>
+                <div className="radio-option">
+                  <input
+                    type="radio"
+                    id="cedula-antigua"
+                    name="tipoCedula"
+                    value="antigua"
+                    checked={tipoCedula === 'antigua'}
+                    onChange={(e) => setTipoCedula(e.target.value as 'nueva' | 'antigua')}
+                  />
+                  <label htmlFor="cedula-antigua">Cédula Antigua</label>
+                </div>
+              </div>
             </div>
           </div>
 

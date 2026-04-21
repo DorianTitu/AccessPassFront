@@ -21,11 +21,27 @@ export const ENDPOINTS = {
   CAPTURA_ROSTRO_PEATONAL: '/capture/camara_usuario_entrada_peatonal',
   CAPTURA_PEATONAL: 'http://localhost:8001/endpoint/capture/camara-entrada-peatonal',
   
+  // Obtener imagen de usuario peatonal (nuevo endpoint)
+  OBTENER_IMAGEN_PEATONAL_USUARIO: '/camaras/peatonal-usuario/imagen',
+  
+  // Obtener imagen de cédula peatonal (nuevo endpoint)
+  OBTENER_IMAGEN_PEATONAL_CEDULA: '/camaras/peatonal-cedula/imagen',
+  
+  // OCR Cédula Nueva
+  OCR_CEDULA_NUMERO: '/ocr/cedula-nueva/numero',
+  OCR_CEDULA_NOMBRES_APELLIDOS: '/ocr/cedula-nueva/nombres-apellidos',
+  
+  // OCR Cédula Antigua
+  OCR_CEDULA_ANTIGUA_NUMERO: '/ocr/cedula-antigua/numero',
+  OCR_CEDULA_ANTIGUA_NOMBRES_APELLIDOS: '/ocr/cedula-antigua/nombres-apellidos',
+  
   // Registros
   GUARDAR_REGISTRO_VEHICULAR: '/save/registro_vehicular',
   GUARDAR_REGISTRO_PEATONAL: '/save/registro_peatonal',
   OBTENER_REGISTROS_VEHICULARES: '/get/registro_vehicular',
   OBTENER_REGISTROS_PEATONALES: '/get/registro_peatonal',
+  OBTENER_INGRESOS_PEATONAL_DIA: '/ingresos-peatonal/listar/dia',
+  OBTENER_DETALLE_INGRESO_PEATONAL: '/ingresos-peatonal',
   
   // Horas de Salida
   ACTUALIZAR_HORA_SALIDA: '/update/hora_salida',

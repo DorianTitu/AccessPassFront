@@ -57,6 +57,19 @@ export interface TicketPeatonalRaw {
   fecha_registro: string
 }
 
+// Estructura REAL que devuelve el nuevo endpoint GET /ingresos-peatonal/listar/dia
+export interface TicketPeatonalDiaRaw {
+  ticket: string
+  fecha_ingreso: string
+  numero_cedula: string
+  nombres: string // TODO JUNTO, ej: "NANCYYOLANDA"
+  apellidos: string // TODO JUNTO, ej: "DE"
+  departamento: string
+  motivo: string
+  hora_entrada: string
+  hora_salida: string | null
+}
+
 // Estructura normalizada esperada por la app
 export interface TicketPeatonal {
   numero_ticket: string
@@ -68,6 +81,36 @@ export interface TicketPeatonal {
   departamento: string
   motivo: string
   fecha_registro: string
+}
+
+// Respuesta específica del endpoint GET /ingresos-peatonal/listar/dia
+export interface ObtenerIngresosPeatonalDiaResponse {
+  exito: boolean
+  fecha: string
+  cantidad_tickets: number
+  tickets: TicketPeatonalDiaRaw[]
+}
+
+// Estructura del ticket individual devuelto por GET /ingresos-peatonal/{ticket}
+export interface DetalleTicketPeatonalDatos {
+  exito: boolean
+  ticket: string
+  fecha_ingreso: string
+  numero_cedula: string
+  nombres: string
+  apellidos: string
+  departamento: string
+  motivo: string
+  hora_entrada: string
+  hora_salida: string | null
+  imagen_usuario_base64: string
+  imagen_cedula_base64: string
+}
+
+// Respuesta del endpoint GET /ingresos-peatonal/{ticket}
+export interface ObtenerDetalleTicketPeatonalResponse {
+  exito: boolean
+  datos: DetalleTicketPeatonalDatos
 }
 
 // === Información de Tickets ===
@@ -134,6 +177,14 @@ export interface EditarRegistroPeatonalPayload {
   cedula?: string
   departamento?: string
   motivo?: string
+}
+
+export interface ActualizarDetalleTicketPeatonalPayload {
+  numero_cedula: string
+  nombres: string
+  apellidos: string
+  departamento: string
+  motivo: string
 }
 
 // === Respuestas API ===

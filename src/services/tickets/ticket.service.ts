@@ -14,7 +14,12 @@ import type {
   ObtenerRegistrosResponse,
   TicketVehicular,
   TicketPeatonal,
-  TicketPeatonalRaw
+  TicketPeatonalRaw,
+  TicketPeatonalDiaRaw,
+  ObtenerIngresosPeatonalDiaResponse,
+  DetalleTicketPeatonalDatos,
+  ObtenerDetalleTicketPeatonalResponse,
+  ActualizarDetalleTicketPeatonalPayload
 } from '../types'
 
 /**
@@ -32,6 +37,37 @@ function normalizarTicketPeatonal(rawTicket: TicketPeatonalRaw): TicketPeatonal 
     departamento: rawTicket.departamento,
     motivo: rawTicket.motivo,
     fecha_registro: rawTicket.fecha_registro
+  }
+}
+
+/**
+ * Convierte fecha de formato DD/MM/YYYY HH:MM:SS a YYYY-MM-DD HH:MM:SS
+ */
+function convertirFechaAlFormatoISO(fechaDDMMYYYY: string, horaHHMMSS: string): string {
+  // Formato entrada: "19/04/2026" y "01:36:00"
+  const [day, month, year] = fechaDDMMYYYY.split('/')
+  // Formato salida: "2026-04-19 01:36:00"
+  return `${year}-${month}-${day} ${horaHHMMSS}`
+}
+
+/**
+ * Normaliza datos del endpoint de ingresos peatonales por día
+ * Mapea: numero_cedula->cedula, hora_entrada->hora_ingreso, fecha_ingreso->fecha_registro
+ */
+function normalizarTicketPeatonalDia(rawTicket: TicketPeatonalDiaRaw): TicketPeatonal {
+  // Convertir fecha al formato ISO compatible con obtenerFechaIngreso()
+  const fechaISO = convertirFechaAlFormatoISO(rawTicket.fecha_ingreso, rawTicket.hora_entrada)
+  
+  return {
+    numero_ticket: rawTicket.ticket,
+    nombres: rawTicket.nombres || '',
+    apellidos: rawTicket.apellidos || '',
+    cedula: rawTicket.numero_cedula,
+    hora_ingreso: rawTicket.hora_entrada,
+    hora_salida: rawTicket.hora_salida || '',
+    departamento: rawTicket.departamento,
+    motivo: rawTicket.motivo,
+    fecha_registro: fechaISO
   }
 }
 
@@ -211,5 +247,121 @@ export async function obtenerRegistrosPeatonales(): Promise<ObtenerRegistrosResp
     total: data.total || 0,
     tickets: normalizedTickets,
     mensaje: data.mensaje
+  }
+}
+
+/**
+ * Convierte fecha de formato YYYY-MM-DD a DD/MM/YYYY
+ */
+function convertirFechaFormat(fecha: string): string {
+  const [year, month, day] = fecha.split('-')
+  return `${day}/${month}/${year}`
+}
+
+/**
+ * Obtiene registros peatonales filtrados por día (nuevo endpoint con fecha)
+ * @param fecha Fecha en formato YYYY-MM-DD
+ */
+export async function obtenerRegistrosPeatonalesPorDia(
+  fecha: string
+): Promise<ObtenerRegistrosResponse<TicketPeatonal>> {
+  const fechaFormato = convertirFechaFormat(fecha)
+  const url = `http://localhost:8000${ENDPOINTS.OBTENER_INGRESOS_PEATONAL_DIA}?fecha=${encodeURIComponent(fechaFormato)}`
+  
+  console.log(`📅 Obteniendo registros peatonales para fecha: ${fechaFormato} (${fecha})`)
+  console.log(`🔗 URL: ${url}`)
+
+  const response = await httpGet<ObtenerIngresosPeatonalDiaResponse>(url)
+
+  if (!response.ok) {
+    console.error('❌ Error al obtener registros peatonales por día:', response.error)
+    return {
+      success: false,
+      total: 0,
+      tickets: [],
+      mensaje: response.error || `Error del servidor: ${response.status}`
+    }
+  }
+
+  const data = (response.data || {}) as ObtenerIngresosPeatonalDiaResponse
+  
+  // Normalizar todos los tickets peatonales para que coincidan con el formato esperado
+  const normalizedTickets = (data.tickets || []).map(normalizarTicketPeatonalDia)
+  
+  console.log(`✅ Registros peatonales obtenidos para ${fechaFormato}: ${normalizedTickets.length}`)
+  
+  return {
+    success: data.exito === true,
+    total: data.cantidad_tickets || 0,
+    tickets: normalizedTickets,
+    mensaje: undefined
+  }
+}
+
+/**
+ * Obtiene los detalles de un ticket peatonal específico incluyendo imágenes
+ * @param ticketCode Código del ticket (ej: TICKET-ABR-13-088)
+ */
+export async function obtenerDetalleTicketPeatonal(
+  ticketCode: string
+): Promise<{ success: boolean; datos?: DetalleTicketPeatonalDatos; mensaje?: string }> {
+  const url = `http://localhost:8000${ENDPOINTS.OBTENER_DETALLE_INGRESO_PEATONAL}/${encodeURIComponent(ticketCode)}`
+  
+  console.log(`📋 Obteniendo detalle del ticket peatonal: ${ticketCode}`)
+  console.log(`🔗 URL: ${url}`)
+
+  const response = await httpGet<ObtenerDetalleTicketPeatonalResponse>(url)
+
+  if (!response.ok) {
+    console.error('❌ Error al obtener detalle del ticket peatonal:', response.error)
+    return {
+      success: false,
+      mensaje: response.error || `Error del servidor: ${response.status}`
+    }
+  }
+
+  const data = (response.data || {}) as ObtenerDetalleTicketPeatonalResponse
+  
+  console.log(`✅ Detalle del ticket peatonal obtenido:`, data.datos)
+  
+  return {
+    success: data.exito === true,
+    datos: data.datos,
+    mensaje: undefined
+  }
+}
+
+/**
+ * Actualiza los detalles de un ticket peatonal
+ * @param ticketCode Código del ticket (ej: TICKET-ABR-13-088)
+ * @param payload Datos a actualizar
+ */
+export async function actualizarDetalleTicketPeatonal(
+  ticketCode: string,
+  payload: ActualizarDetalleTicketPeatonalPayload
+): Promise<{ success: boolean; mensaje?: string }> {
+  const url = `http://localhost:8000${ENDPOINTS.OBTENER_DETALLE_INGRESO_PEATONAL}/${encodeURIComponent(ticketCode)}`
+  
+  console.log(`📝 Actualizando ticket peatonal: ${ticketCode}`)
+  console.log(`🔗 URL: ${url}`)
+  console.log(`📦 Payload:`, payload)
+
+  const response = await httpPut<{ exito: boolean }>(url, payload as unknown as Record<string, unknown>)
+
+  if (!response.ok) {
+    console.error('❌ Error al actualizar ticket peatonal:', response.error)
+    return {
+      success: false,
+      mensaje: response.error || `Error del servidor: ${response.status}`
+    }
+  }
+
+  const data = (response.data || {}) as { exito: boolean }
+  
+  console.log(`✅ Ticket peatonal actualizado exitosamente`)
+  
+  return {
+    success: data.exito === true,
+    mensaje: undefined
   }
 }

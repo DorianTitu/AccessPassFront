@@ -3,7 +3,7 @@
  */
 
 import { httpGet, httpPost } from '../httpClient'
-import { ENDPOINTS, CAPTURE_PARAMS } from '../constants'
+import { ENDPOINTS, CAPTURE_PARAMS, API_BASE_URL } from '../constants'
 import type {
   ExtraerCamposResponse,
   ExtraerPlacaResponse,
@@ -406,6 +406,278 @@ export async function capturarRostroPeatonal(): Promise<{
   } catch (error) {
     console.error('Error al capturar rostro peatonal:', error)
     return { fotoFace: '', exito: false }
+  }
+}
+
+/**
+ * Obtiene la imagen del usuario peatonal desde el nuevo endpoint
+ * GET http://localhost:8000/camaras/peatonal-usuario/imagen
+ * Retorna la imagen en base64 ya procesada como data URL
+ */
+export async function obtenerImagenUsuarioPeatonal(): Promise<{
+  fotoFace: string
+  exito: boolean
+}> {
+  try {
+    // URL completa sin /api (diferente de los demás endpoints)
+    const baseUrl = API_BASE_URL.replace('/api', '')
+    const url = `${baseUrl}${ENDPOINTS.OBTENER_IMAGEN_PEATONAL_USUARIO}`
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      mode: 'cors',
+      credentials: 'include',
+      headers: {
+        'accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      console.error('Error al obtener imagen peatonal:', response.statusText)
+      return { fotoFace: '', exito: false }
+    }
+
+    const data = await response.json() as any
+
+    // Verificar que la respuesta tenga los datos esperados
+    if (!data.exito || !data.imagen_base64) {
+      console.error('Respuesta inválida del servidor:', data)
+      return { fotoFace: '', exito: false }
+    }
+
+    // Procesar el base64: convertirlo a data URL si no lo es
+    let imagenBase64 = data.imagen_base64
+    
+    // Si no es un data URL, agregamos el prefijo
+    if (!imagenBase64.startsWith('data:')) {
+      // Usar el tipo MIME de la respuesta si está disponible
+      const tipo = data.tipo || 'image/jpeg'
+      imagenBase64 = `data:${tipo};base64,${imagenBase64}`
+    }
+
+    return { fotoFace: imagenBase64, exito: true }
+  } catch (error) {
+    console.error('Error al obtener imagen usuario peatonal:', error)
+    return { fotoFace: '', exito: false }
+  }
+}
+
+/**
+ * Extrae el número de cédula desde imagen base64
+ * POST http://localhost:8000/ocr/cedula-nueva/numero
+ */
+export async function extraerNumeroCedula(
+  imagenBase64: string
+): Promise<{ numero: string; confianza: number; exito: boolean }> {
+  try {
+    const baseUrl = API_BASE_URL.replace('/api', '')
+    const url = `${baseUrl}${ENDPOINTS.OCR_CEDULA_NUMERO}`
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      mode: 'cors',
+      credentials: 'include',
+      headers: {
+        'accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ imagen_base64: imagenBase64 })
+    })
+
+    if (!response.ok) {
+      console.error('Error al extraer número de cédula:', response.statusText)
+      return { numero: '', confianza: 0, exito: false }
+    }
+
+    const data = await response.json() as any
+
+    return {
+      numero: data.numero_cedula || '',
+      confianza: data.confianza || 0,
+      exito: !!data.numero_cedula
+    }
+  } catch (error) {
+    console.error('Error al extraer número cédula:', error)
+    return { numero: '', confianza: 0, exito: false }
+  }
+}
+
+/**
+ * Extrae nombres y apellidos desde imagen base64
+ * POST http://localhost:8000/ocr/cedula-nueva/nombres-apellidos
+ */
+export async function extraerNombresApellidosCedula(
+  imagenBase64: string
+): Promise<{ nombres: string; apellidos: string; confianza: number; exito: boolean }> {
+  try {
+    const baseUrl = API_BASE_URL.replace('/api', '')
+    const url = `${baseUrl}${ENDPOINTS.OCR_CEDULA_NOMBRES_APELLIDOS}`
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      mode: 'cors',
+      credentials: 'include',
+      headers: {
+        'accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ imagen_base64: imagenBase64 })
+    })
+
+    if (!response.ok) {
+      console.error('Error al extraer nombres/apellidos:', response.statusText)
+      return { nombres: '', apellidos: '', confianza: 0, exito: false }
+    }
+
+    const data = await response.json() as any
+    const confianzaPromedio = (data.confianza_nombres + data.confianza_apellidos) / 2
+
+    return {
+      nombres: data.nombres || '',
+      apellidos: data.apellidos || '',
+      confianza: confianzaPromedio,
+      exito: !!(data.nombres && data.apellidos)
+    }
+  } catch (error) {
+    console.error('Error al extraer nombres/apellidos cédula:', error)
+    return { nombres: '', apellidos: '', confianza: 0, exito: false }
+  }
+}
+
+/**
+ * Extrae el número de cédula antigua desde imagen base64
+ * POST http://localhost:8000/ocr/cedula-antigua/numero
+ */
+export async function extraerNumeroCedulaAntiga(
+  imagenBase64: string
+): Promise<{ numero: string; confianza: number; exito: boolean }> {
+  try {
+    const baseUrl = API_BASE_URL.replace('/api', '')
+    const url = `${baseUrl}${ENDPOINTS.OCR_CEDULA_ANTIGUA_NUMERO}`
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      mode: 'cors',
+      credentials: 'include',
+      headers: {
+        'accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ imagen_base64: imagenBase64 })
+    })
+
+    if (!response.ok) {
+      console.error('Error al extraer número de cédula antigua:', response.statusText)
+      return { numero: '', confianza: 0, exito: false }
+    }
+
+    const data = await response.json() as any
+
+    return {
+      numero: data.numero_cedula || '',
+      confianza: data.confianza || 0,
+      exito: !!data.numero_cedula
+    }
+  } catch (error) {
+    console.error('Error al extraer número cédula antigua:', error)
+    return { numero: '', confianza: 0, exito: false }
+  }
+}
+
+/**
+ * Extrae nombres y apellidos desde imagen base64 (cédula antigua)
+ * POST http://localhost:8000/ocr/cedula-antigua/nombres-apellidos
+ */
+export async function extraerNombresApellidosCedulaAntiga(
+  imagenBase64: string
+): Promise<{ nombres: string; apellidos: string; confianza: number; exito: boolean }> {
+  try {
+    const baseUrl = API_BASE_URL.replace('/api', '')
+    const url = `${baseUrl}${ENDPOINTS.OCR_CEDULA_ANTIGUA_NOMBRES_APELLIDOS}`
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      mode: 'cors',
+      credentials: 'include',
+      headers: {
+        'accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ imagen_base64: imagenBase64 })
+    })
+
+    if (!response.ok) {
+      console.error('Error al extraer nombres/apellidos antigua:', response.statusText)
+      return { nombres: '', apellidos: '', confianza: 0, exito: false }
+    }
+
+    const data = await response.json() as any
+    const confianzaPromedio = (data.confianza_nombres + data.confianza_apellidos) / 2
+
+    return {
+      nombres: data.nombres || '',
+      apellidos: data.apellidos || '',
+      confianza: confianzaPromedio,
+      exito: !!(data.nombres && data.apellidos)
+    }
+  } catch (error) {
+    console.error('Error al extraer nombres/apellidos cédula antigua:', error)
+    return { nombres: '', apellidos: '', confianza: 0, exito: false }
+  }
+}
+
+/**
+ * Obtiene la imagen de cédula peatonal desde el nuevo endpoint
+ * GET http://localhost:8000/camaras/peatonal-cedula/imagen?aplicar_crop=true
+ * Retorna la imagen en base64 ya procesada como data URL
+ */
+export async function obtenerImagenCedulaPeatonal(): Promise<{
+  fotoID: string
+  exito: boolean
+}> {
+  try {
+    // URL completa sin /api (diferente de los demás endpoints)
+    const baseUrl = API_BASE_URL.replace('/api', '')
+    const url = `${baseUrl}${ENDPOINTS.OBTENER_IMAGEN_PEATONAL_CEDULA}?aplicar_crop=true`
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      mode: 'cors',
+      credentials: 'include',
+      headers: {
+        'accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      console.error('Error al obtener imagen cédula peatonal:', response.statusText)
+      return { fotoID: '', exito: false }
+    }
+
+    const data = await response.json() as any
+
+    // Verificar que la respuesta tenga los datos esperados
+    if (!data.exito || !data.imagen_base64) {
+      console.error('Respuesta inválida del servidor:', data)
+      return { fotoID: '', exito: false }
+    }
+
+    // Procesar el base64: convertirlo a data URL si no lo es
+    let imagenBase64 = data.imagen_base64
+    
+    // Si no es un data URL, agregamos el prefijo
+    if (!imagenBase64.startsWith('data:')) {
+      // Usar el tipo MIME de la respuesta si está disponible
+      const tipo = data.tipo || 'image/jpeg'
+      imagenBase64 = `data:${tipo};base64,${imagenBase64}`
+    }
+
+    return { fotoID: imagenBase64, exito: true }
+  } catch (error) {
+    console.error('Error al obtener imagen cédula peatonal:', error)
+    return { fotoID: '', exito: false }
   }
 }
 

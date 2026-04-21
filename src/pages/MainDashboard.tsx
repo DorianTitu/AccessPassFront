@@ -11,9 +11,12 @@ import {
   TicketVehicular,
   actualizarHoraSalida,
   obtenerRegistrosPeatonales,
+  obtenerRegistrosPeatonalesPorDia,
   obtenerRegistrosVehiculares,
   obtenerTicketInfoVehicular,
-  obtenerTicketInfoPeatonal
+  obtenerTicketInfoPeatonal,
+  obtenerDetalleTicketPeatonal,
+  actualizarDetalleTicketPeatonal
 } from '../services/api'
 import { obtenerDepartamentos, obtenerMotivos, obtenerIdDepartamento } from '../services/configuracion'
 
@@ -135,6 +138,8 @@ export default function MainDashboard() {
   const [filterType, setFilterType] = useState<FilterType>('all')
   const [pedestrianTickets, setPedestrianTickets] = useState<TicketPeatonal[]>([])
   const [vehicularTickets, setVehicularTickets] = useState<TicketVehicular[]>([])
+  // Caché de registros peatonales por fecha (YYYY-MM-DD)
+  const [pedestrianTicketsCache, setPedestrianTicketsCache] = useState<Record<string, TicketPeatonal[]>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [nowMs, setNowMs] = useState(Date.now())
@@ -183,12 +188,52 @@ export default function MainDashboard() {
     setError('')
 
     console.log('🔄 Iniciando carga de histórico...')
+    console.log('📅 Dashboard View:', dashboardView)
     console.log('📅 Fecha seleccionada:', selectedDate)
 
-    const [vehicularResponse, peatonalResponse] = await Promise.all([
-      obtenerRegistrosVehiculares(),
-      obtenerRegistrosPeatonales()
-    ])
+    // Para modo pedestrian: verificar caché primero
+    let peatonalResponse: Awaited<ReturnType<typeof obtenerRegistrosPeatonalesPorDia>> | Awaited<ReturnType<typeof obtenerRegistrosPeatonales>>
+    
+    if (dashboardView === 'pedestrian') {
+      const hoy = obtenerFechaHoy()
+      const esFechaHoy = selectedDate === hoy
+      
+      // Si es hoy, siempre llamar a la API (puede haber nuevos registros)
+      // Si es una fecha antigua y la tenemos en caché, usar caché
+      if (esFechaHoy) {
+        console.log('📅 Es hoy, llamando a la API para obtener datos frescos...')
+        peatonalResponse = await obtenerRegistrosPeatonalesPorDia(selectedDate)
+        // Guardar en caché
+        setPedestrianTicketsCache(prev => ({
+          ...prev,
+          [selectedDate]: peatonalResponse.tickets || []
+        }))
+      } else if (pedestrianTicketsCache[selectedDate]) {
+        // Usar datos en caché
+        console.log(`✅ Usando caché para fecha ${selectedDate}`)
+        peatonalResponse = {
+          success: true,
+          total: pedestrianTicketsCache[selectedDate].length,
+          tickets: pedestrianTicketsCache[selectedDate],
+          mensaje: undefined
+        }
+      } else {
+        // Primera vez que cargamos esta fecha, llamar a la API
+        console.log(`📅 Primera carga para fecha ${selectedDate}, llamando a la API...`)
+        peatonalResponse = await obtenerRegistrosPeatonalesPorDia(selectedDate)
+        // Guardar en caché
+        setPedestrianTicketsCache(prev => ({
+          ...prev,
+          [selectedDate]: peatonalResponse.tickets || []
+        }))
+      }
+    } else {
+      // Modo vehicular: no usar caché, siempre cargar
+      peatonalResponse = await obtenerRegistrosPeatonales()
+    }
+
+    // Cargar vehiculares (siempre)
+    const vehicularResponse = await obtenerRegistrosVehiculares()
 
     console.log('🚗 Respuesta Vehicular:', vehicularResponse)
     console.log('🚶 Respuesta Peatonal:', peatonalResponse)
@@ -231,6 +276,20 @@ export default function MainDashboard() {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('theme-mode', theme)
   }, [isDarkMode])
+
+  // Recargar histórico cuando cambia la vista (para usar el endpoint correcto)
+  useEffect(() => {
+    console.log('🔄 Dashboard view cambió a:', dashboardView)
+    cargarHistorico()
+  }, [dashboardView])
+
+  // Recargar histórico cuando cambia la fecha (solo en modo pedestrian)
+  useEffect(() => {
+    if (dashboardView === 'pedestrian') {
+      console.log('📅 Fecha cambiada en modo peatonal, recargando histórico...')
+      cargarHistorico()
+    }
+  }, [selectedDate])
 
   const handleRegistroExitoso = async () => {
     await cargarHistorico()
@@ -418,6 +477,78 @@ export default function MainDashboard() {
     setPhotosError('')
     setEditMode(true)
 
+    // Intentar con el nuevo endpoint primero
+    const detalleResponse = await obtenerDetalleTicketPeatonal(ticket.numero_ticket)
+
+    if (detalleResponse.success && detalleResponse.datos) {
+      const datos = detalleResponse.datos
+      
+      // Obtener el ID del departamento basado en su nombre
+      const deptId = obtenerIdDepartamento(datos.departamento)
+      
+      // Cargar motivos filtrados para el departamento
+      const motivos = deptId > 0 ? obtenerMotivos(deptId) : []
+      setMotivosFiltrados(motivos)
+      
+      // Normalizar el motivo si existe, buscando coincidencia case-insensitive
+      let motivoNormalizado = datos.motivo
+      if (datos.motivo) {
+        const motivoAPI = datos.motivo.toLowerCase()
+        const motivoEncontrado = motivos.find(m => m.toLowerCase() === motivoAPI)
+        motivoNormalizado = motivoEncontrado || datos.motivo
+      }
+      
+      const ticketData = {
+        nombres: datos.nombres || '',
+        apellidos: datos.apellidos || '',
+        cedula: datos.numero_cedula,
+        departamento: datos.departamento || '',
+        motivo: motivoNormalizado
+      }
+      setEditingData(ticketData)
+      setOriginalEditingData(ticketData)
+      
+      setEditingTicket(ticket)
+      setEditingTicketType('pedestrian')
+      
+      const personaCompleta = `${datos.nombres} ${datos.apellidos}`.trim()
+      setSelectedTicketInfo({
+        tipo: 'pedestrian',
+        ticket: datos.ticket || ticket.numero_ticket || '-',
+        nombre: personaCompleta || 'Sin nombre',
+        cedula: datos.numero_cedula || '-',
+        departamento: datos.departamento || '-',
+        horaIngreso: datos.hora_entrada || '-',
+        horaSalida: datos.hora_salida || 'No ha salido'
+      })
+
+      setSelectedTicketCode(datos.ticket || ticket.numero_ticket)
+      
+      // Cargar imágenes si están disponibles
+      const fotos: Record<string, { archivo: string; size_bytes: number; image_base64: string }> = {}
+      if (datos.imagen_usuario_base64) {
+        fotos['usuario'] = {
+          archivo: 'imagen_usuario_base64',
+          size_bytes: 0,
+          image_base64: datos.imagen_usuario_base64
+        }
+      }
+      if (datos.imagen_cedula_base64) {
+        fotos['cedula'] = {
+          archivo: 'imagen_cedula_base64',
+          size_bytes: 0,
+          image_base64: datos.imagen_cedula_base64
+        }
+      }
+      setTicketPhotos(fotos)
+      setMissingPhotos([])
+      setShowPhotosModal(true)
+      setLoadingPhotosTicket(null)
+      return
+    }
+
+    // Si falla, usar el endpoint antiguo como fallback
+    console.warn('⚠️ El nuevo endpoint falló, intentando con el acabou antiguo...')
     const response = await obtenerTicketInfoPeatonal(ticket.numero_ticket)
 
     if (!response.success) {
@@ -533,12 +664,11 @@ export default function MainDashboard() {
           return
         }
       } else {
-        const { editarRegistroPeatonal } = await import('../services/api')
-        const response = await editarRegistroPeatonal({
-          ticket: editingTicket.numero_ticket,
-          nombre: editingData.nombres,
-          apellido: editingData.apellidos,
-          cedula: editingData.cedula,
+        // Modo peatonal - usar nuevo endpoint
+        const response = await actualizarDetalleTicketPeatonal(editingTicket.numero_ticket, {
+          numero_cedula: editingData.cedula,
+          nombres: editingData.nombres,
+          apellidos: editingData.apellidos,
           departamento: editingData.departamento,
           motivo: editingData.motivo
         })
