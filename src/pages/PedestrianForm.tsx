@@ -165,6 +165,9 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
   }
 
   const handleCapturar = async () => {
+    // 🛡️ GUARD: Evitar llamadas concurrentes (click rápido múltiple)
+    if (loading) return
+
     // 🧹 LIMPIAR PRIMERO todo antes de capturar nuevamente
     setPhotoID(null)
     setPhotoFace(null)
@@ -180,95 +183,90 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
     setOcrLoading(false)
 
     try {
-      let errorCount = 0
-      let photoCedulaTemp: string | null = null
-      let photoRostroTemp: string | null = null
-      let ocrPromise: Promise<void> | null = null
-
+      console.log('[handleCapturar] Iniciando captura de imágenes peatonal...')
+      
       // Lanzar ambas peticiones en PARALELO
-      const cedulaPromise = obtenerImagenCedulaPeatonal().then((cedulaResult) => {
-        if (cedulaResult.exito && cedulaResult.fotoID) {
-          photoCedulaTemp = cedulaResult.fotoID
+      const [cedulaResult, rostroResult] = await Promise.all([
+        obtenerImagenCedulaPeatonal(),
+        obtenerImagenUsuarioPeatonal()
+      ])
 
-          // Extraer el base64 puro del data URL para los endpoints OCR
-          const partes = cedulaResult.fotoID.split(',')
-          const base64Puro = partes.length > 1 ? partes[1] : cedulaResult.fotoID
+      console.log('[handleCapturar] Resultados recibidos:', {
+        cedulaExito: cedulaResult.exito,
+        rostroExito: rostroResult.exito
+      })
 
-          // Iniciar OCR apenas la cédula esté lista - hacer ambas llamadas en paralelo
-          setOcrLoading(true)
-          console.log(`[OCR] Lanzando OCR para Cédula ${tipoCedula === 'nueva' ? 'Nueva' : 'Antigua'}...`)
-          const inicioOCR = Date.now()
-          
-          // Elegir funciones según tipo de cédula
-          const fnNumero = tipoCedula === 'nueva' ? extraerNumeroCedula : extraerNumeroCedulaAntiga
-          const fnNombres = tipoCedula === 'nueva' ? extraerNombresApellidosCedula : extraerNombresApellidosCedulaAntiga
-          
-          ocrPromise = Promise.all([
+      // Verificar si al menos una fue exitosa
+      let errorCount = 0
+      if (!cedulaResult.exito || !cedulaResult.fotoID) {
+        console.error('[handleCapturar] Error: No se obtuvo imagen de cédula')
+        errorCount++
+      }
+      if (!rostroResult.exito || !rostroResult.fotoFace) {
+        console.error('[handleCapturar] Error: No se obtuvo imagen de rostro')
+        errorCount++
+      }
+
+      // Mostrar las fotos si se capturaron correctamente
+      if (cedulaResult.exito && cedulaResult.fotoID) {
+        console.log('[handleCapturar] Asignando fotoID al estado')
+        setPhotoID(cedulaResult.fotoID)
+
+        // Extraer el base64 puro del data URL para los endpoints OCR
+        const partes = cedulaResult.fotoID.split(',')
+        const base64Puro = partes.length > 1 ? partes[1] : cedulaResult.fotoID
+
+        // Iniciar OCR
+        setOcrLoading(true)
+        console.log(`[OCR] Lanzando OCR para Cédula ${tipoCedula === 'nueva' ? 'Nueva' : 'Antigua'}...`)
+        const inicioOCR = Date.now()
+        
+        // Elegir funciones según tipo de cédula
+        const fnNumero = tipoCedula === 'nueva' ? extraerNumeroCedula : extraerNumeroCedulaAntiga
+        const fnNombres = tipoCedula === 'nueva' ? extraerNombresApellidosCedula : extraerNombresApellidosCedulaAntiga
+        
+        try {
+          const [numeroResult, nombresResult] = await Promise.all([
             fnNumero(base64Puro),
             fnNombres(base64Puro)
           ])
-            .then(([numeroResult, nombresResult]) => {
-              const tiempoOCR = Date.now() - inicioOCR
-              console.log(`[OCR] Ambas peticiones completadas en ${tiempoOCR}ms`)
-              if (numeroResult.exito || nombresResult.exito) {
-                setFormData(prev => ({
-                  ...prev,
-                  cedula: numeroResult.numero || prev.cedula,
-                  nombres: nombresResult.nombres || prev.nombres,
-                  apellidos: nombresResult.apellidos || prev.apellidos
-                }))
-              }
-            })
-            .catch((error) => {
-              console.error('Error al extraer OCR de cédula:', error)
-            })
-            .finally(() => {
-              setOcrLoading(false)
-            })
-          return
+          
+          const tiempoOCR = Date.now() - inicioOCR
+          console.log(`[OCR] Ambas peticiones completadas en ${tiempoOCR}ms`)
+          
+          if (numeroResult.exito || nombresResult.exito) {
+            setFormData(prev => ({
+              ...prev,
+              cedula: numeroResult.numero || prev.cedula,
+              nombres: nombresResult.nombres || prev.nombres,
+              apellidos: nombresResult.apellidos || prev.apellidos
+            }))
+          }
+        } catch (ocrError) {
+          console.error('[OCR] Error al extraer campos:', ocrError)
+        } finally {
+          setOcrLoading(false)
         }
-        errorCount++
-      }).catch((error) => {
-        console.error('Error al obtener imagen cédula:', error)
-        errorCount++
-      })
+      }
 
-      const rostroPromise = obtenerImagenUsuarioPeatonal().then((rostroResult) => {
-        if (rostroResult.exito && rostroResult.fotoFace) {
-          photoRostroTemp = rostroResult.fotoFace
-          return
-        }
-        errorCount++
-      }).catch((error) => {
-        console.error('Error al obtener imagen peatonal:', error)
-        errorCount++
-      })
-
-      // Esperar a ambas en paralelo
-      await Promise.allSettled([cedulaPromise, rostroPromise])
-
-      // Mostrar las fotos cuando ambas estén listos
-      setPhotoFace(photoRostroTemp)
-      setPhotoID(photoCedulaTemp)
+      if (rostroResult.exito && rostroResult.fotoFace) {
+        console.log('[handleCapturar] Asignando fotoFace al estado')
+        setPhotoFace(rostroResult.fotoFace)
+      }
 
       setLoading(false)
 
-      // Si OCR ya arrancó, esperar a que termine antes de salir.
-      if (ocrPromise) {
-        await ocrPromise
-      }
-
       if (errorCount > 0) {
-        alert(`Error: Solo se capturaron ${2 - errorCount} de 2 imágenes`)
+        alert(`⚠️ Error: Solo se capturaron ${2 - errorCount} de 2 imágenes`)
       }
     } catch (error) {
-      console.error('Error:', error)
+      console.error('[handleCapturar] Error general:', error)
       alert('Error al capturar imágenes')
-    } finally {
       setLoading(false)
       setOcrLoading(false)
     }
   }
+
 
 
 

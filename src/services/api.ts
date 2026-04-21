@@ -17,6 +17,8 @@ export type {
   ExtraerPlacaResponse,
   ExtraerCedulaVehicularResponse,
   ExtraerCedulaPeatonalResponse,
+  ImagenPeatonalUsuarioResponse,
+  ImagenPeatonalCedulaResponse,
   TicketVehicular,
   TicketPeatonal,
   TicketPeatonalRaw,

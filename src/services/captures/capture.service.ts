@@ -8,7 +8,9 @@ import type {
   ExtraerCamposResponse,
   ExtraerPlacaResponse,
   ExtraerCedulaVehicularResponse,
-  ExtraerCedulaPeatonalResponse
+  ExtraerCedulaPeatonalResponse,
+  ImagenPeatonalUsuarioResponse,
+  ImagenPeatonalCedulaResponse
 } from '../types'
 
 /**
@@ -417,11 +419,14 @@ export async function capturarRostroPeatonal(): Promise<{
 export async function obtenerImagenUsuarioPeatonal(): Promise<{
   fotoFace: string
   exito: boolean
+  canal?: string
 }> {
   try {
     // URL completa sin /api (diferente de los demás endpoints)
     const baseUrl = API_BASE_URL.replace('/api', '')
     const url = `${baseUrl}${ENDPOINTS.OBTENER_IMAGEN_PEATONAL_USUARIO}`
+    
+    console.log('[obtenerImagenUsuarioPeatonal] Iniciando solicitud a:', url)
     
     const response = await fetch(url, {
       method: 'GET',
@@ -438,7 +443,13 @@ export async function obtenerImagenUsuarioPeatonal(): Promise<{
       return { fotoFace: '', exito: false }
     }
 
-    const data = await response.json() as any
+    const data = await response.json() as ImagenPeatonalUsuarioResponse
+    console.log('[obtenerImagenUsuarioPeatonal] Respuesta recibida:', {
+      exito: data.exito,
+      canal: data.canal,
+      tipo: data.tipo,
+      imagenLength: data.imagen_base64?.length || 0
+    })
 
     // Verificar que la respuesta tenga los datos esperados
     if (!data.exito || !data.imagen_base64) {
@@ -454,9 +465,16 @@ export async function obtenerImagenUsuarioPeatonal(): Promise<{
       // Usar el tipo MIME de la respuesta si está disponible
       const tipo = data.tipo || 'image/jpeg'
       imagenBase64 = `data:${tipo};base64,${imagenBase64}`
+      console.log('[obtenerImagenUsuarioPeatonal] Convertido a data URL con tipo:', tipo)
     }
 
-    return { fotoFace: imagenBase64, exito: true }
+    console.log('[obtenerImagenUsuarioPeatonal] Data URL primeros 100 chars:', imagenBase64.substring(0, 100))
+
+    return { 
+      fotoFace: imagenBase64, 
+      exito: true,
+      canal: data.canal
+    }
   } catch (error) {
     console.error('Error al obtener imagen usuario peatonal:', error)
     return { fotoFace: '', exito: false }
@@ -632,14 +650,18 @@ export async function extraerNombresApellidosCedulaAntiga(
  * GET http://localhost:8000/camaras/peatonal-cedula/imagen?aplicar_crop=true
  * Retorna la imagen en base64 ya procesada como data URL
  */
-export async function obtenerImagenCedulaPeatonal(): Promise<{
+export async function obtenerImagenCedulaPeatonal(aplicarCrop: boolean = true): Promise<{
   fotoID: string
   exito: boolean
+  canal?: string
+  aplicaroCrop?: boolean
 }> {
   try {
     // URL completa sin /api (diferente de los demás endpoints)
     const baseUrl = API_BASE_URL.replace('/api', '')
-    const url = `${baseUrl}${ENDPOINTS.OBTENER_IMAGEN_PEATONAL_CEDULA}?aplicar_crop=true`
+    const url = `${baseUrl}${ENDPOINTS.OBTENER_IMAGEN_PEATONAL_CEDULA}?aplicar_crop=${aplicarCrop}`
+    
+    console.log('[obtenerImagenCedulaPeatonal] Iniciando solicitud a:', url)
     
     const response = await fetch(url, {
       method: 'GET',
@@ -656,7 +678,14 @@ export async function obtenerImagenCedulaPeatonal(): Promise<{
       return { fotoID: '', exito: false }
     }
 
-    const data = await response.json() as any
+    const data = await response.json() as ImagenPeatonalCedulaResponse
+    console.log('[obtenerImagenCedulaPeatonal] Respuesta recibida:', {
+      exito: data.exito,
+      canal: data.canal,
+      tipo: data.tipo,
+      aplicar_crop: data.aplicar_crop,
+      imagenLength: data.imagen_base64?.length || 0
+    })
 
     // Verificar que la respuesta tenga los datos esperados
     if (!data.exito || !data.imagen_base64) {
@@ -672,9 +701,17 @@ export async function obtenerImagenCedulaPeatonal(): Promise<{
       // Usar el tipo MIME de la respuesta si está disponible
       const tipo = data.tipo || 'image/jpeg'
       imagenBase64 = `data:${tipo};base64,${imagenBase64}`
+      console.log('[obtenerImagenCedulaPeatonal] Convertido a data URL con tipo:', tipo)
     }
 
-    return { fotoID: imagenBase64, exito: true }
+    console.log('[obtenerImagenCedulaPeatonal] Data URL primeros 100 chars:', imagenBase64.substring(0, 100))
+
+    return { 
+      fotoID: imagenBase64, 
+      exito: true,
+      canal: data.canal,
+      aplicaroCrop: data.aplicar_crop
+    }
   } catch (error) {
     console.error('Error al obtener imagen cédula peatonal:', error)
     return { fotoID: '', exito: false }

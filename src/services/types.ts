@@ -31,6 +31,31 @@ export interface ExtraerCedulaPeatonalResponse {
   apellidos: string
 }
 
+// === Respuestas de Imágenes de Cámara Peatonal ===
+/**
+ * Respuesta del endpoint GET /camaras/peatonal-usuario/imagen
+ * Retorna imagen del rostro del usuario en la entrada peatonal
+ */
+export interface ImagenPeatonalUsuarioResponse {
+  exito: boolean
+  canal: string // e.g., "Peatonal Usuario"
+  tipo: string // e.g., "image/jpeg"
+  imagen_base64: string
+}
+
+/**
+ * Respuesta del endpoint GET /camaras/peatonal-cedula/imagen
+ * Retorna imagen de la cédula del usuario en la entrada peatonal
+ * Puede incluir crop si se solicita via query param
+ */
+export interface ImagenPeatonalCedulaResponse {
+  exito: boolean
+  canal: string // e.g., "Peatonal Cédula"
+  tipo: string // e.g., "image/jpeg"
+  aplicar_crop?: boolean
+  imagen_base64: string
+}
+
 // === Tickets ===
 export interface TicketVehicular {
   numero_ticket: string
