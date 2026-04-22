@@ -13,6 +13,49 @@ import type {
   ImagenPeatonalCedulaResponse
 } from '../types'
 
+interface ImagenPeatonalNormalizada {
+  exito: boolean
+  canal?: string
+  tipo?: string
+  aplicarCrop?: boolean
+  imagenBase64: string
+}
+
+/**
+ * Normaliza respuestas de cámara peatonal.
+ * Soporta variantes: exito/success y imagen_base64/image_base64.
+ */
+function normalizarImagenPeatonalResponse(data: Record<string, unknown>): ImagenPeatonalNormalizada {
+  const exito = data.exito === true || data.success === true
+  const imagenBase64Raw =
+    (typeof data.imagen_base64 === 'string' && data.imagen_base64) ||
+    (typeof data.image_base64 === 'string' && data.image_base64) ||
+    ''
+  const tipo =
+    (typeof data.tipo === 'string' && data.tipo) ||
+    (typeof data.mime_type === 'string' && data.mime_type) ||
+    'image/jpeg'
+
+  const imagenBase64 = imagenBase64Raw.startsWith('data:')
+    ? imagenBase64Raw
+    : imagenBase64Raw
+      ? `data:${tipo};base64,${imagenBase64Raw}`
+      : ''
+
+  return {
+    exito: exito && !!imagenBase64,
+    canal: (typeof data.canal === 'string' && data.canal) || undefined,
+    tipo,
+    aplicarCrop:
+      typeof data.aplicar_crop === 'boolean'
+        ? data.aplicar_crop
+        : typeof data.aplicarCrop === 'boolean'
+          ? data.aplicarCrop
+          : undefined,
+    imagenBase64
+  }
+}
+
 /**
  * Convierte un Data URI (Base64) a Blob
  */
@@ -431,10 +474,8 @@ export async function obtenerImagenUsuarioPeatonal(): Promise<{
     const response = await fetch(url, {
       method: 'GET',
       mode: 'cors',
-      credentials: 'include',
       headers: {
-        'accept': 'application/json',
-        'Content-Type': 'application/json'
+        'accept': 'application/json'
       }
     })
 
@@ -443,37 +484,27 @@ export async function obtenerImagenUsuarioPeatonal(): Promise<{
       return { fotoFace: '', exito: false }
     }
 
-    const data = await response.json() as ImagenPeatonalUsuarioResponse
+    const data = await response.json() as ImagenPeatonalUsuarioResponse & Record<string, unknown>
+    const normalizada = normalizarImagenPeatonalResponse(data)
     console.log('[obtenerImagenUsuarioPeatonal] Respuesta recibida:', {
-      exito: data.exito,
-      canal: data.canal,
-      tipo: data.tipo,
-      imagenLength: data.imagen_base64?.length || 0
+      exito: normalizada.exito,
+      canal: normalizada.canal,
+      tipo: normalizada.tipo,
+      imagenLength: normalizada.imagenBase64?.length || 0
     })
 
     // Verificar que la respuesta tenga los datos esperados
-    if (!data.exito || !data.imagen_base64) {
+    if (!normalizada.exito || !normalizada.imagenBase64) {
       console.error('Respuesta inválida del servidor:', data)
       return { fotoFace: '', exito: false }
     }
 
-    // Procesar el base64: convertirlo a data URL si no lo es
-    let imagenBase64 = data.imagen_base64
-    
-    // Si no es un data URL, agregamos el prefijo
-    if (!imagenBase64.startsWith('data:')) {
-      // Usar el tipo MIME de la respuesta si está disponible
-      const tipo = data.tipo || 'image/jpeg'
-      imagenBase64 = `data:${tipo};base64,${imagenBase64}`
-      console.log('[obtenerImagenUsuarioPeatonal] Convertido a data URL con tipo:', tipo)
-    }
-
-    console.log('[obtenerImagenUsuarioPeatonal] Data URL primeros 100 chars:', imagenBase64.substring(0, 100))
+    console.log('[obtenerImagenUsuarioPeatonal] Data URL primeros 100 chars:', normalizada.imagenBase64.substring(0, 100))
 
     return { 
-      fotoFace: imagenBase64, 
+      fotoFace: normalizada.imagenBase64,
       exito: true,
-      canal: data.canal
+      canal: normalizada.canal
     }
   } catch (error) {
     console.error('Error al obtener imagen usuario peatonal:', error)
@@ -495,7 +526,6 @@ export async function extraerNumeroCedula(
     const response = await fetch(url, {
       method: 'POST',
       mode: 'cors',
-      credentials: 'include',
       headers: {
         'accept': 'application/json',
         'Content-Type': 'application/json'
@@ -535,7 +565,6 @@ export async function extraerNombresApellidosCedula(
     const response = await fetch(url, {
       method: 'POST',
       mode: 'cors',
-      credentials: 'include',
       headers: {
         'accept': 'application/json',
         'Content-Type': 'application/json'
@@ -577,7 +606,6 @@ export async function extraerNumeroCedulaAntiga(
     const response = await fetch(url, {
       method: 'POST',
       mode: 'cors',
-      credentials: 'include',
       headers: {
         'accept': 'application/json',
         'Content-Type': 'application/json'
@@ -617,7 +645,6 @@ export async function extraerNombresApellidosCedulaAntiga(
     const response = await fetch(url, {
       method: 'POST',
       mode: 'cors',
-      credentials: 'include',
       headers: {
         'accept': 'application/json',
         'Content-Type': 'application/json'
@@ -666,10 +693,8 @@ export async function obtenerImagenCedulaPeatonal(aplicarCrop: boolean = true): 
     const response = await fetch(url, {
       method: 'GET',
       mode: 'cors',
-      credentials: 'include',
       headers: {
-        'accept': 'application/json',
-        'Content-Type': 'application/json'
+        'accept': 'application/json'
       }
     })
 
@@ -678,39 +703,29 @@ export async function obtenerImagenCedulaPeatonal(aplicarCrop: boolean = true): 
       return { fotoID: '', exito: false }
     }
 
-    const data = await response.json() as ImagenPeatonalCedulaResponse
+    const data = await response.json() as ImagenPeatonalCedulaResponse & Record<string, unknown>
+    const normalizada = normalizarImagenPeatonalResponse(data)
     console.log('[obtenerImagenCedulaPeatonal] Respuesta recibida:', {
-      exito: data.exito,
-      canal: data.canal,
-      tipo: data.tipo,
-      aplicar_crop: data.aplicar_crop,
-      imagenLength: data.imagen_base64?.length || 0
+      exito: normalizada.exito,
+      canal: normalizada.canal,
+      tipo: normalizada.tipo,
+      aplicar_crop: normalizada.aplicarCrop,
+      imagenLength: normalizada.imagenBase64?.length || 0
     })
 
     // Verificar que la respuesta tenga los datos esperados
-    if (!data.exito || !data.imagen_base64) {
+    if (!normalizada.exito || !normalizada.imagenBase64) {
       console.error('Respuesta inválida del servidor:', data)
       return { fotoID: '', exito: false }
     }
 
-    // Procesar el base64: convertirlo a data URL si no lo es
-    let imagenBase64 = data.imagen_base64
-    
-    // Si no es un data URL, agregamos el prefijo
-    if (!imagenBase64.startsWith('data:')) {
-      // Usar el tipo MIME de la respuesta si está disponible
-      const tipo = data.tipo || 'image/jpeg'
-      imagenBase64 = `data:${tipo};base64,${imagenBase64}`
-      console.log('[obtenerImagenCedulaPeatonal] Convertido a data URL con tipo:', tipo)
-    }
-
-    console.log('[obtenerImagenCedulaPeatonal] Data URL primeros 100 chars:', imagenBase64.substring(0, 100))
+    console.log('[obtenerImagenCedulaPeatonal] Data URL primeros 100 chars:', normalizada.imagenBase64.substring(0, 100))
 
     return { 
-      fotoID: imagenBase64, 
+      fotoID: normalizada.imagenBase64,
       exito: true,
-      canal: data.canal,
-      aplicaroCrop: data.aplicar_crop
+      canal: normalizada.canal,
+      aplicaroCrop: normalizada.aplicarCrop
     }
   } catch (error) {
     console.error('Error al obtener imagen cédula peatonal:', error)

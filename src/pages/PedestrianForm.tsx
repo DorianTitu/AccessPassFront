@@ -211,7 +211,14 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
       if (cedulaResult.exito && cedulaResult.fotoID) {
         console.log('[handleCapturar] Asignando fotoID al estado')
         setPhotoID(cedulaResult.fotoID)
+      }
 
+      if (rostroResult.exito && rostroResult.fotoFace) {
+        console.log('[handleCapturar] Asignando fotoFace al estado')
+        setPhotoFace(rostroResult.fotoFace)
+      }
+
+      if (cedulaResult.exito && cedulaResult.fotoID) {
         // Extraer el base64 puro del data URL para los endpoints OCR
         const partes = cedulaResult.fotoID.split(',')
         const base64Puro = partes.length > 1 ? partes[1] : cedulaResult.fotoID
@@ -247,11 +254,6 @@ export default function PedestrianForm({ onClose, onSuccess }: PedestrianFormPro
         } finally {
           setOcrLoading(false)
         }
-      }
-
-      if (rostroResult.exito && rostroResult.fotoFace) {
-        console.log('[handleCapturar] Asignando fotoFace al estado')
-        setPhotoFace(rostroResult.fotoFace)
       }
 
       setLoading(false)
